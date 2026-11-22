@@ -751,7 +751,7 @@ const LEVELS = [
   },
   {
     id: '2-1', world: 2, name: 'Thin Ice', rolls: 5, star3: 1400, teach: 'ice', reward: { emp: 'mirror' },
-    tip: 'Ice blocks take two matches: the first thaws, the second breaks. You cannot stack on ice.',
+    tip: 'Ice blocks take two matches: the first thaws, the second breaks.',
     goals: [{ t: 'ice' }],
     rows: [
       '. . . . . .',
@@ -2075,7 +2075,7 @@ const TEACH = {
     { rows: ['. 1 . 2 .', '3 3 2 5 4'], band: 1, cap: '2. Full row glows gold' },
     { rows: ['. 1 . 2 .', '3 3 2 5 4'], band: 1, die: { v: 2, col: 2, row: 0 }, cap: '3. Make a match touching it' },
     { rows: ['. 1 x x .', 'x x x x x'], cap: 'LINE BONUS! Whole row clears' }] },
-  ice: { title: 'Ice', note: 'You cannot stack on ice. The first match thaws it; a second match breaks it. A line bonus smashes it at once.', panels: [
+  ice: { title: 'Ice', note: 'The first match thaws it; a second match breaks it. A line bonus smashes it at once.', panels: [
     { rows: ['. . .', 'i3 . 3'], die: { v: 3, col: 1, row: 1 }, cap: 'Match next to the ice' },
     { rows: ['. . .', '*3 x x'], cap: 'First match thaws it' },
     { rows: ['. . .', 'x x x'], cap: 'Second match breaks it' }] },
