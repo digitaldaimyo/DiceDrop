@@ -239,7 +239,7 @@ function createGame(level, dice, seed = (Math.random() * 2 ** 31) | 0) {
     w, h, cells: new Array(w * h).fill(null), holes: new Array(w * h).fill(0),
     nextId: 1, rs: seed | 0, tray: [], dice: dice.map(d => ({ ...d })),
     rollsLeft: level.rolls, rollsTotal: level.rolls, score: 0,
-    prog: { broken: {}, total: 0, bursts: 0, lines: 0, ice: 0, stone: 0, maxCombo: 0 },
+    prog: { broken: {}, total: 0, bursts: 0, lines: 0, ice: 0, stone: 0, bombs: 0, maxCombo: 0 },
     goals: level.goals.map(g => ({ ...g })), status: 'roll', turn: 0,
   };
   for (let r = 0; r < h; r++) {
@@ -250,15 +250,18 @@ function createGame(level, dice, seed = (Math.random() * 2 ** 31) | 0) {
       if (t === '.') continue;
       if (t === '#') { s.holes[i] = 1; continue; }
       if (t === 'S') { s.cells[i] = { id: s.nextId++, k: 's', v: 0, ice: 0, blaze: 0 }; continue; }
-      let ice = 0, v = t;
+      if (t === 'w') { s.cells[i] = { id: s.nextId++, k: 'w', v: 0, ice: 0, blaze: 0 }; continue; }
+      let ice = 0, bomb = 0, v = t;
       if (t[0] === 'i') { ice = 1; v = t.slice(1); }
-      s.cells[i] = { id: s.nextId++, k: 'n', v: +v, ice, blaze: 0 };
+      if (t[0] === 'b') { const [a, b] = t.slice(1).split(':'); v = a; bomb = +(b || 4); }
+      s.cells[i] = { id: s.nextId++, k: 'n', v: +v, ice, blaze: 0, bomb };
     }
   }
   // auto-fill goal counts
   for (const g of s.goals) {
     if (g.t === 'ice' && !g.n) g.n = s.cells.filter(c => c && c.ice).length;
     if (g.t === 'stone' && !g.n) g.n = s.cells.filter(c => c && c.k === 's').length;
+    if (g.t === 'bomb' && !g.n) g.n = s.cells.filter(c => c && c.bomb).length;
   }
   s.initialBlocks = s.cells.filter(Boolean).length;
   gravity(s);
@@ -270,6 +273,14 @@ const clone = s => JSON.parse(JSON.stringify(s));
 // ---------- dice ----------
 function roll(s) {
   if (s.rollsLeft <= 0) return false;
+  s.fizzled = []; s.ticked = [];
+  if (s.turn > 0) {
+    for (let i = 0; i < s.cells.length; i++) {
+      const c = s.cells[i]; if (!c || !c.bomb) continue;
+      c.bomb--; s.ticked.push(c.id);
+      if (c.bomb <= 0) { s.cells[i] = { id: c.id, k: 's', v: 0, ice: 0, blaze: 0 }; s.fizzled.push({ id: c.id, x: i % s.w, y: Math.floor(i / s.w) }); }
+    }
+  }
   s.rollsLeft--; s.turn++;
   s.tray = s.dice.map((d, i) => {
     const sides = SIDES[d.type];
@@ -345,9 +356,12 @@ function place(s, ti, tgt, value) {
   die.placed = true;
   const steps = [];
   if (tgt.kind === 'drop') {
-    const b = { id: s.nextId++, k: 'n', v: value, ice: 0, blaze: die.emp === 'blazing' ? 1 : 0 };
+    const sp = splitPlan(s, die, tgt, value);
+    const b = die.emp === 'wild' ? { id: s.nextId++, k: 'w', v: 0, ice: 0, blaze: 0 } : { id: s.nextId++, k: 'n', v: sp ? sp.a : value, ice: 0, blaze: die.emp === 'blazing' ? 1 : 0 };
     s.cells[idx(s, tgt.x, tgt.y)] = b;
-    steps.push({ type: 'place', mode: 'drop', id: b.id, x: tgt.x, y: tgt.y, from: 0, v: b.v, die });
+    let extra = null;
+    if (sp) { const y2 = landY(s, sp.x2); const b2 = { id: s.nextId++, k: 'n', v: sp.b, ice: 0, blaze: 0 }; s.cells[idx(s, sp.x2, y2)] = b2; extra = { id: b2.id, x: sp.x2, y: y2, v: sp.b }; }
+    steps.push({ type: 'place', mode: 'drop', id: b.id, x: tgt.x, y: tgt.y, from: 0, v: b.v, k: b.k, die, extra });
   } else {
     const b = at(s, tgt.x, tgt.y);
     const from = b.v;
@@ -358,6 +372,13 @@ function place(s, ti, tgt, value) {
   steps.push(...resolve(s));
   updateStatus(s);
   return steps;
+}
+
+// Split: a drop of value >= 2 becomes two blocks (ceil half here, floor half in a neighbor column)
+function splitPlan(s, die, tgt, value) {
+  if (die.emp !== 'split' || tgt.kind !== 'drop' || value < 2) return null;
+  for (const dx of [1, -1]) { const x2 = tgt.x + dx; if (x2 >= 0 && x2 < s.w && landY(s, x2) >= 0) return { a: Math.ceil(value / 2), b: Math.floor(value / 2), x2 }; }
+  return null;
 }
 
 // ---------- gravity ----------
@@ -384,19 +405,24 @@ function gravity(s) {
 // ---------- clear detection ----------
 const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 function findMatches(s) {
-  const seen = new Uint8Array(s.w * s.h), groups = [];
-  for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
-    const c = at(s, x, y);
-    if (!c || c.k !== 'n' || seen[idx(s, x, y)]) continue;
-    const g = [], st = [[x, y]]; seen[idx(s, x, y)] = 1;
-    while (st.length) {
-      const [cx, cy] = st.pop(); g.push([cx, cy]);
-      for (const [dx, dy] of N4) {
-        const nx = cx + dx, ny = cy + dy, n = at(s, nx, ny);
-        if (n && n.k === 'n' && n.v === c.v && !seen[idx(s, nx, ny)]) { seen[idx(s, nx, ny)] = 1; st.push([nx, ny]); }
+  // wild (k:'w') blocks count as any number; a wild can join groups of different numbers
+  const groups = [], vals = new Set();
+  for (const c of s.cells) if (c && c.k === 'n') vals.add(c.v);
+  for (const v of vals) {
+    const seen = new Uint8Array(s.w * s.h);
+    for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
+      const c = at(s, x, y);
+      if (!c || c.k !== 'n' || c.v !== v || seen[idx(s, x, y)]) continue;
+      const g = [], st = [[x, y]]; seen[idx(s, x, y)] = 1;
+      while (st.length) {
+        const [cx, cy] = st.pop(); g.push([cx, cy]);
+        for (const [dx, dy] of N4) {
+          const nx = cx + dx, ny = cy + dy, n = at(s, nx, ny);
+          if (n && ((n.k === 'n' && n.v === v) || n.k === 'w') && !seen[idx(s, nx, ny)]) { seen[idx(s, nx, ny)] = 1; st.push([nx, ny]); }
+        }
       }
+      if (g.length >= 3) groups.push({ v, cells: g });
     }
-    if (g.length >= 3) groups.push({ v: c.v, cells: g });
   }
   return groups;
 }
@@ -490,6 +516,19 @@ function resolve(s) {
       clear.set(nk, ent); dec.delete(nk);
       if (n.blaze) queue.push(ent);
     }
+    // bombs: a cleared bomb blasts the 3x3 around it (chains to other bombs)
+    const bq = [...clear.values()].filter(e => e.c.bomb), blasts = [], blasted = new Set();
+    while (bq.length) {
+      const e = bq.shift(), bk = key(e.x, e.y); if (blasted.has(bk)) continue; blasted.add(bk);
+      blasts.push([e.x, e.y]); s.prog.bombs++; pts += 150;
+      for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+        const nx = e.x + dx, ny = e.y + dy, n = at(s, nx, ny); if (!n) continue;
+        const nk = key(nx, ny); thaw.delete(nk);
+        const ent = clear.get(nk) || { x: nx, y: ny, c: n, mult: 1 };
+        clear.set(nk, ent);
+        if (n.bomb && !blasted.has(nk)) bq.push(ent);
+      }
+    }
     for (const k of clear.keys()) { dec.delete(k); thaw.delete(k); }
     // apply decrements
     const decs = [];
@@ -506,17 +545,18 @@ function resolve(s) {
     for (const { x, y, c, mult } of clear.values()) {
       if (c.ice) s.prog.ice++;
       if (c.k === 's') { s.prog.stone++; pts += 50; }
+      else if (c.k === 'w') pts += 30;
       else { s.prog.broken[c.v] = (s.prog.broken[c.v] || 0) + 1; pts += Math.round(c.v * 10 * mult); }
       s.prog.total++;
       s.cells[idx(s, x, y)] = null;
-      cleared.push({ id: c.id, x, y, v: c.v, k: c.k, ice: c.ice, blaze: c.blaze });
+      cleared.push({ id: c.id, x, y, v: c.v, k: c.k, ice: c.ice, blaze: c.blaze, bomb: c.bomb || 0 });
     }
     s.prog.bursts += bursts.length; s.prog.lines += lines.length;
     s.prog.maxCombo = Math.max(s.prog.maxCombo, combo);
     const gained = pts * combo;
     s.score += gained;
     const moves = gravity(s);
-    steps.push({ type: 'resolve', combo, groups, lines, bursts, blazes, decs, thaws, cleared, moves, gained });
+    steps.push({ type: 'resolve', combo, groups, lines, bursts, blazes, blasts, decs, thaws, cleared, moves, gained });
   }
   return steps;
 }
@@ -533,6 +573,7 @@ function goalProgress(s) {
       case 'lines': cur = s.prog.lines; break;
       case 'ice': cur = s.prog.ice; break;
       case 'stone': cur = s.prog.stone; break;
+      case 'bomb': cur = s.prog.bombs; break;
       case 'score': cur = s.score; break;
       case 'combo': cur = s.prog.maxCombo; break;
     }
@@ -543,6 +584,8 @@ const goalsMet = s => goalProgress(s).every(p => p.done);
 
 function updateStatus(s) {
   if (goalsMet(s)) { s.status = 'won'; return s.status; }
+  const bg = s.goals.find(g => g.t === 'bomb');
+  if (bg && s.prog.bombs + s.cells.filter(c => c && c.bomb).length < bg.n) { s.status = 'lost'; s.lostReason = 'fizzle'; return s.status; }
   const left = unplaced(s);
   if (left.length) {
     s.status = left.some(d => hasLegalMove(s, d)) ? 'place' : 'stuck';
@@ -567,7 +610,12 @@ function preview(s, ti, tgt, value) {
   if (!ok) return { ok, result, ids: [] };
   const c = clone(s);
   c.tray[ti].placed = false;
-  if (tgt.kind === 'drop') c.cells[idx(c, tgt.x, tgt.y)] = { id: -1, k: 'n', v: value, ice: 0, blaze: 0 };
+  const sp = splitPlan(c, die, tgt, value);
+  let extra = null;
+  if (tgt.kind === 'drop') {
+    c.cells[idx(c, tgt.x, tgt.y)] = die.emp === 'wild' ? { id: -1, k: 'w', v: 0, ice: 0, blaze: 0 } : { id: -1, k: 'n', v: sp ? sp.a : value, ice: 0, blaze: 0 };
+    if (sp) { const y2 = landY(c, sp.x2); c.cells[idx(c, sp.x2, y2)] = { id: -2, k: 'n', v: sp.b, ice: 0, blaze: 0 }; extra = { x: sp.x2, y: y2, v: sp.b }; }
+  }
   else { const b = at(c, tgt.x, tgt.y); b.v = result; }
   const ids = new Set();
   for (const g of findMatches(c)) for (const [x, y] of g.cells) ids.add(at(c, x, y).id);
@@ -576,22 +624,614 @@ function preview(s, ti, tgt, value) {
     else for (let y = 0; y < c.h; y++) { const b = at(c, L.i, y); if (b) ids.add(b.id); }
   }
   for (const [x, y] of findBursts(c)) ids.add(at(c, x, y).id);
-  return { ok, result, ids: [...ids], burst: result === MAX_V };
+  const shown = die.emp === 'wild' && tgt.kind === 'drop' ? '★' : sp ? sp.a : result;
+  return { ok, result: shown, ids: [...ids], burst: result === MAX_V && !sp, extra, wild: die.emp === 'wild' && tgt.kind === 'drop' };
 }
 
-return { SIDES, MAX_V, rnd, idx, at, isHole, parseLevel, createGame, clone, roll, rerollDie, flipDie, unplaced, landY, targetFor, canPlace, stackResult, hasLegalMove, place, gravity, findMatches, findLines, triggeredLines, findBursts, resolve, goalProgress, goalsMet, updateStatus, finalScore, starsFor, preview };
+return { SIDES, MAX_V, rnd, idx, at, isHole, parseLevel, createGame, clone, roll, rerollDie, flipDie, unplaced, landY, targetFor, canPlace, stackResult, hasLegalMove, place, splitPlan, gravity, findMatches, findLines, triggeredLines, findBursts, resolve, goalProgress, goalsMet, updateStatus, finalScore, starsFor, preview };
 })();
 // ---- levels ----
-// ===== Levels & progression data =====
-// rows: top -> bottom. '.' empty, '#' hole, 'S' stone, '7' block, 'i7' ice block
-const WORLDS = [
-  { id: 1, name: 'Meadow', theme: 'meadow', blurb: 'Learn to roll, stack and match.' },
-  { id: 2, name: 'Glacier', theme: 'glacier', blurb: 'Ice and stone get in the way.' },
+// AUTO-GENERATED by tools/gen.mjs. Do not edit by hand.
+const GENERATED = [
+ {
+  "key": "g2-4-211091",
+  "chapter": 2,
+  "slot": 4,
+  "gen": true,
+  "tier": "hard",
+  "name": "Crisp Floe",
+  "rolls": 4,
+  "star3": 2600,
+  "tip": "Ice takes two matches: the first thaws it.",
+  "goals": [
+   {
+    "t": "ice"
+   },
+   {
+    "t": "lines",
+    "n": 5
+   }
+  ],
+  "rows": [
+   ". . . . .",
+   ". . . . .",
+   ". . . . .",
+   ". . . . .",
+   "i3 . . 2 .",
+   "9 . 3 i5 i3",
+   "i9 . 6 8 6"
+  ],
+  "bot": 44
+ },
+ {
+  "key": "g2-5-205000",
+  "chapter": 2,
+  "slot": 5,
+  "gen": true,
+  "tier": "breather",
+  "name": "Shiver Pass",
+  "rolls": 6,
+  "star3": 1500,
+  "tip": "Stack a block to exactly 20 to burst it.",
+  "goals": [
+   {
+    "t": "burst",
+    "n": 1
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . 9 . . .",
+   "15 . 3 . . .",
+   "4 S 9 18 . .",
+   "7 9 6 8 8 ."
+  ],
+  "bot": 100
+ },
+ {
+  "key": "g2-6-206000",
+  "chapter": 2,
+  "slot": 6,
+  "gen": true,
+  "tier": "normal",
+  "name": "Frosty Crossing",
+  "rolls": 6,
+  "star3": 2500,
+  "tip": null,
+  "goals": [
+   {
+    "t": "break",
+    "v": 3,
+    "n": 4
+   }
+  ],
+  "rows": [
+   "# . . . #",
+   "# . . . #",
+   ". . . . .",
+   ". . . . .",
+   ". i7 7 . .",
+   ". 3 4 3 8",
+   ". i2 7 9 1"
+  ],
+  "bot": 76
+ },
+ {
+  "key": "g2-7-207000",
+  "chapter": 2,
+  "slot": 7,
+  "gen": true,
+  "tier": "normal",
+  "name": "Icy Ledge",
+  "rolls": 4,
+  "star3": 2500,
+  "tip": "Ice takes two matches: the first thaws it.",
+  "goals": [
+   {
+    "t": "ice"
+   },
+   {
+    "t": "any",
+    "n": 28
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   "# . . . 2 #",
+   "# # i8 . # #",
+   ". . 8 i6 i6 .",
+   "1 . 3 2 i5 7",
+   "i3 . 2 9 i4 8"
+  ],
+  "bot": 67
+ },
+ {
+  "key": "g2-8-208000",
+  "chapter": 2,
+  "slot": 8,
+  "gen": true,
+  "tier": "normal",
+  "name": "Crisp Drift",
+  "rolls": 4,
+  "star3": 3000,
+  "tip": "Fill a row so it glows gold, then match inside it.",
+  "goals": [
+   {
+    "t": "lines",
+    "n": 4
+   }
+  ],
+  "rows": [
+   ". . . . .",
+   ". . . . .",
+   ". . . . .",
+   ". 18 . . .",
+   "16 5 . . .",
+   "5 S S 6 ."
+  ],
+  "bot": 47
+ },
+ {
+  "key": "g2-9-209000",
+  "chapter": 2,
+  "slot": 9,
+  "gen": true,
+  "tier": "hard",
+  "name": "Snowy Floe",
+  "rolls": 4,
+  "star3": 2900,
+  "tip": "Ice takes two matches: the first thaws it.",
+  "goals": [
+   {
+    "t": "break",
+    "v": 3,
+    "n": 4
+   },
+   {
+    "t": "ice"
+   },
+   {
+    "t": "stone"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . 17 . .",
+   ". . . 8 17 .",
+   ". . . 7 9 .",
+   "S . 7 9 i8 .",
+   "1 . i5 3 S ."
+  ],
+  "bot": 48
+ },
+ {
+  "key": "g3-2-302000",
+  "chapter": 3,
+  "slot": 2,
+  "gen": true,
+  "tier": "normal",
+  "name": "Cinder Flow",
+  "rolls": 4,
+  "star3": 1800,
+  "tip": "Match bombs before their timers run out.",
+  "goals": [
+   {
+    "t": "bomb"
+   },
+   {
+    "t": "any",
+    "n": 16
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . 7",
+   "3 . . . . 5",
+   "b10:4 . 3 . . 5",
+   "7 3 7 . 1 7"
+  ],
+  "bot": 83
+ },
+ {
+  "key": "g3-3-303000",
+  "chapter": 3,
+  "slot": 3,
+  "gen": true,
+  "tier": "normal",
+  "name": "Ashen Forge",
+  "rolls": 7,
+  "star3": 2900,
+  "tip": "Match bombs before their timers run out.",
+  "goals": [
+   {
+    "t": "break",
+    "v": 1,
+    "n": 4
+   },
+   {
+    "t": "bomb"
+   }
+  ],
+  "rows": [
+   ". . . . .",
+   ". . . . .",
+   "8 . . . .",
+   "5 . . . .",
+   "9 10 . 5 10",
+   "1 b6:4 . b1:5 8"
+  ],
+  "bot": 45
+ },
+ {
+  "key": "g3-4-304000",
+  "chapter": 3,
+  "slot": 4,
+  "gen": true,
+  "tier": "hard",
+  "name": "Molten Forge",
+  "rolls": 4,
+  "star3": 3000,
+  "tip": "Fill a row so it glows gold, then match inside it.",
+  "goals": [
+   {
+    "t": "lines",
+    "n": 4
+   },
+   {
+    "t": "bomb"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   "6 . . . . .",
+   "4 . 1 . . .",
+   "6 . 2 . 8 .",
+   "b1:3 9 9 2 b3:4 .",
+   "9 8 8 9 9 ."
+  ],
+  "bot": 36
+ },
+ {
+  "key": "g3-5-305000",
+  "chapter": 3,
+  "slot": 5,
+  "gen": true,
+  "tier": "breather",
+  "name": "Cinder Crater",
+  "rolls": 6,
+  "star3": 1500,
+  "tip": "Match bombs before their timers run out.",
+  "goals": [
+   {
+    "t": "bomb"
+   }
+  ],
+  "rows": [
+   ". . . . .",
+   ". . . . .",
+   ". . . . .",
+   ". . . . .",
+   "8 . . 9 b3:4",
+   "2 8 . 4 7",
+   "5 7 . 1 8"
+  ],
+  "bot": 100
+ },
+ {
+  "key": "g3-6-306000",
+  "chapter": 3,
+  "slot": 6,
+  "gen": true,
+  "tier": "normal",
+  "name": "Scorched Pit",
+  "rolls": 4,
+  "star3": 2500,
+  "tip": "Match bombs before their timers run out.",
+  "goals": [
+   {
+    "t": "bomb"
+   },
+   {
+    "t": "stone"
+   },
+   {
+    "t": "any",
+    "n": 25
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   "5 . . 3 . .",
+   "10 . . b7:4 . .",
+   "9 b2:5 8 6 . 6",
+   "4 S 4 S . 1"
+  ],
+  "bot": 85
+ },
+ {
+  "key": "g3-7-307000",
+  "chapter": 3,
+  "slot": 7,
+  "gen": true,
+  "tier": "normal",
+  "name": "Ashen Pit",
+  "rolls": 4,
+  "star3": 2500,
+  "tip": "Match bombs before their timers run out.",
+  "goals": [
+   {
+    "t": "bomb"
+   },
+   {
+    "t": "any",
+    "n": 17
+   }
+  ],
+  "rows": [
+   ". . . . .",
+   ". . . . .",
+   ". . . b6:5 8",
+   ". . . b8:3 b5:5",
+   "2 . . 9 6",
+   "# . . 6 #",
+   "# . . 9 #"
+  ],
+  "bot": 72
+ },
+ {
+  "key": "g3-8-308000",
+  "chapter": 3,
+  "slot": 8,
+  "gen": true,
+  "tier": "normal",
+  "name": "Cinder Vent",
+  "rolls": 4,
+  "star3": 3200,
+  "tip": "Match bombs before their timers run out.",
+  "goals": [
+   {
+    "t": "bomb"
+   },
+   {
+    "t": "burst",
+    "n": 3
+   }
+  ],
+  "rows": [
+   ". . . . .",
+   ". . . . .",
+   ". . . 1 .",
+   ". . . 9 8",
+   "17 . 15 6 10",
+   "b10:4 . b2:4 7 1"
+  ],
+  "bot": 57
+ },
+ {
+  "key": "g3-9-316091",
+  "chapter": 3,
+  "slot": 9,
+  "gen": true,
+  "tier": "hard",
+  "name": "Glowing Flow",
+  "rolls": 4,
+  "star3": 2900,
+  "tip": "Stones break from a burst next to them or a line bonus through their row.",
+  "goals": [
+   {
+    "t": "stone"
+   },
+   {
+    "t": "ice"
+   },
+   {
+    "t": "bomb"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . S",
+   ". . . . . S",
+   "10 . . . 8 1",
+   "7 . b8:4 . 6 2",
+   "b6:4 . 2 9 i2 i7"
+  ],
+  "bot": 46
+ },
+ {
+  "key": "g4-2-402000",
+  "chapter": 4,
+  "slot": 2,
+  "gen": true,
+  "tier": "normal",
+  "name": "Velvet Glade",
+  "rolls": 4,
+  "star3": 2100,
+  "tip": null,
+  "goals": [
+   {
+    "t": "any",
+    "n": 20
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   "# . . . . #",
+   "# # . . # #",
+   "1 . . 10 i10 6",
+   "9 . . 1 4 7",
+   "i8 i9 . 4 3 10"
+  ],
+  "bot": 75
+ },
+ {
+  "key": "g4-4-406026",
+  "chapter": 4,
+  "slot": 4,
+  "gen": true,
+  "tier": "hard",
+  "name": "Starlit Glade",
+  "rolls": 4,
+  "star3": 2700,
+  "tip": "Fill a row so it glows gold, then match inside it.",
+  "goals": [
+   {
+    "t": "lines",
+    "n": 4
+   },
+   {
+    "t": "bomb"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". 6 . . . .",
+   ". # . . # .",
+   ". # 1 3 # .",
+   ". 3 3 1 . b9:4",
+   ". 5 b2:3 7 10 3"
+  ],
+  "bot": 35
+ },
+ {
+  "key": "g4-5-405000",
+  "chapter": 4,
+  "slot": 5,
+  "gen": true,
+  "tier": "breather",
+  "name": "Dusky Grove",
+  "rolls": 5,
+  "star3": 1400,
+  "tip": null,
+  "goals": [
+   {
+    "t": "any",
+    "n": 10
+   }
+  ],
+  "rows": [
+   "# . . . #",
+   "# . . . #",
+   ". 3 . . .",
+   ". 3 9 . .",
+   ". 1 1 . .",
+   ". 9 6 7 4"
+  ],
+  "bot": 100
+ },
+ {
+  "key": "g4-6-406000",
+  "chapter": 4,
+  "slot": 6,
+  "gen": true,
+  "tier": "normal",
+  "name": "Mellow Arbor",
+  "rolls": 4,
+  "star3": 2500,
+  "tip": "Ice takes two matches: the first thaws it.",
+  "goals": [
+   {
+    "t": "ice"
+   },
+   {
+    "t": "bomb"
+   },
+   {
+    "t": "any",
+    "n": 19
+   }
+  ],
+  "rows": [
+   ". . . . .",
+   ". . . . .",
+   "1 . 1 . .",
+   "3 . i5 3 i9",
+   "# . 6 4 #",
+   "# . b2:5 2 #"
+  ],
+  "bot": 68
+ },
+ {
+  "key": "g4-8-408000",
+  "chapter": 4,
+  "slot": 8,
+  "gen": true,
+  "tier": "normal",
+  "name": "Velvet Meadow",
+  "rolls": 4,
+  "star3": 1800,
+  "tip": "Match bombs before their timers run out.",
+  "goals": [
+   {
+    "t": "bomb"
+   },
+   {
+    "t": "any",
+    "n": 19
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   "# . . . . #",
+   "# # . . # #",
+   ". 7 6 . . .",
+   ". S 9 5 . .",
+   ". b3:4 6 6 S ."
+  ],
+  "bot": 60
+ },
+ {
+  "key": "g4-9-410013",
+  "chapter": 4,
+  "slot": 9,
+  "gen": true,
+  "tier": "hard",
+  "name": "Starlit Lane",
+  "rolls": 4,
+  "star3": 2000,
+  "tip": "Match bombs before their timers run out.",
+  "goals": [
+   {
+    "t": "break",
+    "v": 4,
+    "n": 6
+   },
+   {
+    "t": "bomb"
+   },
+   {
+    "t": "ice"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". 3 . . 4 .",
+   ". # . . # .",
+   ". # . . # .",
+   ". 6 7 . 9 4",
+   ". b1:4 i1 . i3 3"
+  ],
+  "bot": 46
+ }
 ];
 
-const LEVELS = [
+// ===== Levels & progression data =====
+// rows: top -> bottom. '.' empty, '#' hole, 'S' stone, '7' block, 'i7' ice block
+
+const HAND_LEVELS = [
   {
-    id: '1-1', world: 1, name: 'First Roll', rolls: 6, star3: 1500, teach: 'match',
+    key: 'firstroll', name: 'First Roll', rolls: 6, star3: 1500, teach: 'match',
     tip: 'Drag a die onto the board. Three touching blocks with the same number clear!',
     goals: [{ t: 'any', n: 6 }],
     rows: [
@@ -604,7 +1244,7 @@ const LEVELS = [
     ],
   },
   {
-    id: '1-2', world: 1, name: 'Stack Up', rolls: 6, star3: 1300, teach: 'stack', reward: { emp: 'reroll' },
+    key: 'stackup', name: 'Stack Up', rolls: 6, star3: 1300, teach: 'stack', reward: { emp: 'reroll' },
     tip: 'Drop a die ON a block to add to its number. Tune blocks into matches.',
     goals: [{ t: 'break', v: 6, n: 3 }],
     rows: [
@@ -617,7 +1257,7 @@ const LEVELS = [
     ],
   },
   {
-    id: '1-3', world: 1, name: 'Twenty!', rolls: 4, star3: 1700, teach: 'burst', reward: { die: 'd4' },
+    key: 'twenty', name: 'Twenty!', rolls: 4, star3: 1700, teach: 'burst', reward: { die: 'd4' },
     tip: 'Stack a block to exactly 20 and it bursts, knocking 1 off its neighbors.',
     goals: [{ t: 'burst', n: 2 }],
     rows: [
@@ -630,7 +1270,7 @@ const LEVELS = [
     ],
   },
   {
-    id: '1-4', world: 1, name: 'Line Bonus', rolls: 6, star3: 1500, teach: 'line',
+    key: 'linebonus', name: 'Line Bonus', rolls: 6, star3: 1500, teach: 'line',
     tip: 'Fill the gap in the bottom row so it glows gold, then make a match touching it. The whole row clears!',
     goals: [{ t: 'lines', n: 2 }],
     rows: [
@@ -643,7 +1283,7 @@ const LEVELS = [
     ],
   },
   {
-    id: '1-5', world: 1, name: 'Number Hunt', rolls: 10, star3: 2300, reward: { emp: 'heavy' },
+    key: 'numberhunt', name: 'Number Hunt', rolls: 10, star3: 2300, reward: { emp: 'heavy' },
     tip: 'Hunt for specific numbers. Watch the goal tracker at the top.',
     goals: [{ t: 'break', v: 5, n: 4 }, { t: 'break', v: 3, n: 3 }],
     rows: [
@@ -656,7 +1296,7 @@ const LEVELS = [
     ],
   },
   {
-    id: '1-6', world: 1, name: 'Clean Sweep', rolls: 8, star3: 1400, reward: { die: 'd2' },
+    key: 'cleansweep', name: 'Clean Sweep', rolls: 8, star3: 1400, reward: { die: 'd2' },
     tip: 'Clear every block. Small dice are great for fine-tuning.',
     goals: [{ t: 'clear' }],
     rows: [
@@ -669,7 +1309,7 @@ const LEVELS = [
     ],
   },
   {
-    id: '1-7', world: 1, name: 'Garden Path', rolls: 9, star3: 1900,
+    key: 'gardenpath', name: 'Garden Path', rolls: 9, star3: 1900,
     tip: 'Holes shape the board. Blocks fall straight through them.',
     goals: [{ t: 'any', n: 12 }],
     rows: [
@@ -682,7 +1322,7 @@ const LEVELS = [
     ],
   },
   {
-    id: '1-8', world: 1, name: 'Hot Streak', rolls: 9, star3: 2500, reward: { slot: 1 },
+    key: 'hotstreak', name: 'Hot Streak', rolls: 9, star3: 2500, reward: { slot: 1 },
     tip: 'Chain clears into cascades for big multipliers.',
     goals: [{ t: 'score', n: 2000 }],
     rows: [
@@ -695,7 +1335,7 @@ const LEVELS = [
     ],
   },
   {
-    id: '1-9', world: 1, name: 'Pairs', rolls: 9, star3: 2100, reward: { emp: 'loaded' },
+    key: 'pairs', name: 'Pairs', rolls: 9, star3: 2100, reward: { emp: 'loaded' },
     tip: 'Pairs are one die away from a match.',
     goals: [{ t: 'break', v: 2, n: 3 }, { t: 'break', v: 4, n: 3 }, { t: 'break', v: 6, n: 3 }],
     rows: [
@@ -708,7 +1348,7 @@ const LEVELS = [
     ],
   },
   {
-    id: '1-10', world: 1, name: 'Tall Grass', rolls: 7, star3: 3500, reward: { emp: 'blazing' },
+    key: 'tallgrass', name: 'Tall Grass', rolls: 4, star3: 3100,
     tip: 'A crowded board. Bursts and line bonuses make room fast.',
     goals: [{ t: 'lines', n: 2 }, { t: 'burst', n: 2 }],
     rows: [
@@ -722,7 +1362,7 @@ const LEVELS = [
     ],
   },
   {
-    id: '1-11', world: 1, name: 'Doubles', rolls: 10, star3: 2000,
+    key: 'doubles', name: 'Doubles', rolls: 4, star3: 1900,
     tip: 'Clear the whole board. Plan your last drops carefully.',
     goals: [{ t: 'clear' }],
     rows: [
@@ -736,7 +1376,7 @@ const LEVELS = [
     ],
   },
   {
-    id: '1-12', world: 1, name: 'Meadow Boss', rolls: 15, star3: 4900, reward: { die: 'd8' },
+    key: 'meadowboss', name: 'Meadow Boss', rolls: 15, star3: 4900, reward: { die: 'd8' },
     tip: 'Boss level! Seven 5s, four 7s and a burst.',
     goals: [{ t: 'break', v: 5, n: 7 }, { t: 'break', v: 7, n: 4 }, { t: 'burst', n: 1 }],
     rows: [
@@ -750,7 +1390,7 @@ const LEVELS = [
     ],
   },
   {
-    id: '2-1', world: 2, name: 'Thin Ice', rolls: 5, star3: 1400, teach: 'ice', reward: { emp: 'mirror' },
+    key: 'thinice', name: 'Thin Ice', rolls: 5, star3: 1500, teach: 'ice', reward: { emp: 'mirror' },
     tip: 'Ice blocks take two matches: the first thaws, the second breaks.',
     goals: [{ t: 'ice' }],
     rows: [
@@ -763,9 +1403,9 @@ const LEVELS = [
     ],
   },
   {
-    id: '2-2', world: 2, name: 'Frozen Row', rolls: 6, star3: 1600,
+    key: 'frozenrow', name: 'Frozen Row', rolls: 4, star3: 1600,
     tip: 'Line bonuses smash straight through ice. Match inside a full row!',
-    goals: [{ t: 'ice' }, { t: 'lines', n: 2 }],
+    goals: [{ t: 'ice' }, { t: 'lines', n: 3 }],
     rows: [
       '. . . . . .',
       '. . . . . .',
@@ -776,9 +1416,9 @@ const LEVELS = [
     ],
   },
   {
-    id: '2-3', world: 2, name: 'Rockfall', rolls: 5, star3: 2000, teach: 'stone', reward: { slot: 1 },
+    key: 'rockfall', name: 'Rockfall', rolls: 4, star3: 2100, teach: 'stone', reward: { slot: 1 },
     tip: 'Stones only break from a neighboring burst, or a line bonus through their row.',
-    goals: [{ t: 'stone' }],
+    goals: [{ t: 'stone' }, { t: 'burst', n: 2 }],
     rows: [
       '. . . . . .',
       '. . . . . .',
@@ -789,9 +1429,9 @@ const LEVELS = [
     ],
   },
   {
-    id: '2-4', world: 2, name: 'Glacier Heart', rolls: 7, star3: 3000,
+    key: 'glacierheart', name: 'Glacier Heart', rolls: 5, star3: 3100, reward: { emp: 'blazing' },
     tip: 'Everything at once. Good luck!',
-    goals: [{ t: 'ice' }, { t: 'stone' }, { t: 'burst', n: 1 }],
+    goals: [{ t: 'ice' }, { t: 'stone' }, { t: 'burst', n: 2 }, { t: 'lines', n: 3 }],
     rows: [
       '. . . . . . .',
       '. . . . . . .',
@@ -802,7 +1442,87 @@ const LEVELS = [
       '. i7 2 . 6 i7 .',
     ],
   },
+  {
+    key: 'fuse', name: 'Fuse Lit', rolls: 4, star3: 1300, teach: 'bomb', reward: { emp: 'split' },
+    tip: 'Bombs count down every roll. Match them before they fizzle!',
+    goals: [{ t: 'bomb' }],
+    rows: [
+      '. . . . .',
+      '. . . . .',
+      '. . . . .',
+      '. . . . .',
+      '2 9 . . 6',
+      'b4:4 4 . 1 b6:4',
+    ],
+  },
+  {
+    key: 'magmaheart', name: 'Magma Heart', rolls: 5, star3: 3000, reward: { die: 'd10' },
+    tip: 'Boss level! Blasts smash stone too.',
+    goals: [{ t: 'bomb' }, { t: 'stone' }, { t: 'break', v: 5, n: 7 }, { t: 'lines', n: 2 }],
+    rows: [
+      '. . . . . .',
+      '. . . . . .',
+      '. . . . . .',
+      '. . . 5 . .',
+      '. b3:3 . 7 S .',
+      '4 9 . b5:4 2 b8:5',
+      'S 2 . 6 b7:5 S',
+    ],
+  },
+  {
+    key: 'duskgarden', name: 'Dusk Garden', rolls: 5, star3: 1300, teach: 'shapes', reward: { emp: 'wild' },
+    tip: 'Holes shape the board. Blocks fall straight past them.',
+    goals: [{ t: 'any', n: 12 }],
+    rows: [
+      '. . . . . .',
+      '. . . . . .',
+      '# . . . . #',
+      '# # . . # #',
+      '. # . . # .',
+      '2 4 . 5 1 .',
+    ],
+  },
+  {
+    key: 'twilight', name: 'Twilight Boss', rolls: 4, star3: 2500, reward: { emp: 'blazing' },
+    tip: 'Boss level! Bombs, ice and pillars at once.',
+    goals: [{ t: 'bomb' }, { t: 'ice' }, { t: 'lines', n: 4 }],
+    rows: [
+      '. . . . . .',
+      '. . . . . .',
+      '. . . . . .',
+      '. # . . # .',
+      '. # . . # .',
+      'b5:4 i3 . 8 i6 b2:4',
+      '3 7 . 2 4 6',
+    ],
+  },
 ];
+
+// ===== chapters =====
+const CHAPTERS = [
+  { n: 1, name: 'Meadow', env: 'meadow', variant: 'day', blurb: 'Learn to roll, stack, match and burst.',
+    plan: ['firstroll', 'stackup', 'twenty', 'linebonus', 'numberhunt', 'cleansweep', 'gardenpath', 'hotstreak', 'pairs', 'meadowboss'] },
+  { n: 2, name: 'Glacier', env: 'glacier', variant: 'day', blurb: 'Ice and stone get in the way.',
+    plan: ['thinice', 'frozenrow', 'rockfall', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'glacierheart'] },
+  { n: 3, name: 'Volcano', env: 'volcano', variant: 'ember', names: 'volcano', blurb: 'Bombs tick down every roll. Blast them first.',
+    plan: ['fuse', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'magmaheart'] },
+  { n: 4, name: 'Meadow at Dusk', env: 'meadow', variant: 'dusk', names: 'dusk', blurb: 'Shaped boards, fireflies, and a little of everything.',
+    plan: ['duskgarden', 'gen', 'tallgrass', 'gen', 'gen', 'gen', 'doubles', 'gen', 'gen', 'twilight'] },
+];
+// levels parked for later chapters
+const PARKED = [];
+// old save ids -> stable keys
+const LEGACY_IDS = {'1-1': 'firstroll', '1-2': 'stackup', '1-3': 'twenty', '1-4': 'linebonus', '1-5': 'numberhunt', '1-6': 'cleansweep', '1-7': 'gardenpath', '1-8': 'hotstreak', '1-9': 'pairs', '1-10': 'tallgrass', '1-11': 'doubles', '1-12': 'meadowboss', '2-1': 'thinice', '2-2': 'frozenrow', '2-3': 'rockfall', '2-4': 'glacierheart'};
+const HAND = Object.fromEntries(HAND_LEVELS.map(l => [l.key, l]));
+const LEVELS = [];
+for (const ch of CHAPTERS) {
+  ch.plan.forEach((k, i) => {
+    const slot = i + 1;
+    let lv = k === 'gen' ? GENERATED.find(g => g.chapter === ch.n && g.slot === slot) : HAND[k];
+    if (!lv) return;
+    LEVELS.push({ ...lv, chapter: ch.n, slot, id: `${ch.n}-${slot}`, boss: slot === ch.plan.length });
+  });
+}
 
 // rewards & shop
 const EMPS = {
@@ -811,6 +1531,8 @@ const EMPS = {
   loaded: { name: 'Loaded', color: '#ffd23f', desc: 'Never rolls a 1.', price: 20 },
   blazing: { name: 'Blazing', color: '#ff7a1a', desc: 'When its block clears, it also burns a neighbor.', price: 35 },
   mirror: { name: 'Mirror', color: '#b57bff', desc: 'Tap to flip to the opposite face (a 2 on a D6 becomes 5).', price: 25 },
+  split: { name: 'Split', color: '#2fd6a0', desc: 'Dropped in an empty spot, it splits into two blocks of half its value, side by side.', price: 30 },
+  wild: { name: 'Wild', color: '#ff4fd8', desc: 'Dropped in an empty spot, it becomes a ★ block that matches any number.', price: 40 },
 };
 const DIE_INFO = {
   d2: { name: 'D2', color: '#f4c542', price: 8, role: 'Precision nudge' },
@@ -847,7 +1569,7 @@ const vibrate = ms => { try { if (navigator.vibrate) navigator.vibrate(ms); } ca
 const SAVE_KEY = 'dicedrop.v1';
 function defaultProfile() {
   return {
-    v: 1, gems: 0, stars: {}, best: {}, nextDie: 4,
+    v: 2, gems: 0, stars: {}, best: {}, nextDie: 4,
     dice: [{ id: 1, type: 'd6', emp: null }, { id: 2, type: 'd6', emp: null }, { id: 3, type: 'd6', emp: null }],
     loadout: [1, 2, 3], slots: START_SLOTS, emps: {}, unlockedDice: ['d6'], unlockedEmps: [], seen: {},
     settings: { sound: true, music: true, reduced: false, quality: 'high' },
@@ -856,7 +1578,13 @@ function defaultProfile() {
 function loadProfile() {
   try {
     const j = JSON.parse(localStorage.getItem(SAVE_KEY));
-    if (j && j.v === 1) { const d = defaultProfile(); return { ...d, ...j, settings: { ...d.settings, ...(j.settings || {}) } }; }
+    if (j && j.v === 1) {
+      // v1 keyed stars by world-level ids ("1-12"); v2 uses stable level keys
+      const mapKeys = o => Object.fromEntries(Object.entries(o || {}).map(([k, v]) => [LEGACY_IDS[k] || k, v]));
+      j.stars = mapKeys(j.stars); j.best = mapKeys(j.best); j.v = 2;
+      try { localStorage.setItem(SAVE_KEY, JSON.stringify(j)); } catch (e) { }
+    }
+    if (j && j.v === 2) { const d = defaultProfile(); return { ...d, ...j, settings: { ...d.settings, ...(j.settings || {}) } }; }
   } catch (e) { }
   return defaultProfile();
 }
@@ -864,8 +1592,8 @@ let P = loadProfile();
 function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(P)); } catch (e) { } }
 const dieById = id => P.dice.find(d => d.id === id);
 const empAvail = e => (P.emps[e] || 0) - P.dice.filter(d => d.emp === e).length;
-const levelIndex = id => LEVELS.findIndex(l => l.id === id);
-const levelUnlocked = i => i === 0 || (P.stars[LEVELS[i - 1].id] || 0) > 0;
+const levelIndex = key => LEVELS.findIndex(l => l.key === key);
+const levelUnlocked = i => i === 0 || (P.stars[LEVELS[i].key] || 0) > 0 || (P.stars[LEVELS[i - 1].key] || 0) > 0;
 
 // =============== audio ===============
 const AC = { ctx: null };
@@ -1091,19 +1819,44 @@ function flatMat(color, extra = {}) {
 }
 
 // =============== themes / world ===============
-const THEMES = {
+const ENVS = {
   meadow: {
     bgTop: '#74c2ff', bgBottom: '#ffd7ee', grass: '#7ed957', dirt: '#b07a50', dirtDark: '#7d5139', panel: '#2e2457', cell: '#3c3274', cellEdge: '#5a4fa0',
     frame: '#9b6a45', gem: '#ffd23f', leaf: ['#47c36a', '#6edb59', '#36a85a'], trunk: '#8a5a3c', rock: '#aaa3bd', flower: ['#ff7eb6', '#ffd84d', '#ffffff', '#b78bff'],
-    particle: '#fff3a6', fall: -0.15, felt: '#5b2a86', tag: '#2fbf71',
+    env: 'meadow', particle: '#fff3a6', fall: -0.15, drift: 0, felt: '#5b2a86', tag: '#2fbf71',
   },
   glacier: {
     bgTop: '#4b82d6', bgBottom: '#dff4ff', grass: '#f3fbff', dirt: '#93c6ea', dirtDark: '#5e95c6', panel: '#1b3356', cell: '#264d77', cellEdge: '#4a7fb3',
     frame: '#7aa7cf', gem: '#7fe3ff', leaf: ['#2f8f7a', '#3aa58a', '#eef8ff'], trunk: '#6b4b3a', rock: '#c0d8ea', flower: ['#c7f2ff', '#ffffff', '#a6dbff'],
-    particle: '#ffffff', fall: 0.55, felt: '#24507e', tag: '#3d8bff',
+    env: 'glacier', particle: '#ffffff', fall: 0.55, drift: 0.1, felt: '#24507e', tag: '#3d8bff',
   },
 };
-const world = { group: new THREE.Group(), clouds: [], points: null, theme: THEMES.meadow, gems: [], props: [] };
+ENVS.volcano = {
+  env: 'volcano', props: 'volcano', bgTop: '#3a0f2e', bgBottom: '#ff7a3d', grass: '#3b2a2f', dirt: '#5a3a35', dirtDark: '#2e1d22', panel: '#2a1420', cell: '#43202f', cellEdge: '#7a3446',
+  frame: '#4a3036', gem: '#ff7a1a', leaf: ['#4a3036', '#5a3a3a', '#3a2a2a'], trunk: '#2e2329', rock: '#5d4a52', flower: ['#ff7a1a', '#ffcf3d', '#ff4d2e'],
+  particle: '#ff9a3c', fall: -0.7, drift: 0.1, psize: 0.14, felt: '#5a1f1f', tag: '#ff5a2e', sun: '#ffb08a', sunI: 2.0, hemiI: 1.25, hemiSky: '#ffb38a',
+};
+const VARIANTS = {
+  volcano: {
+    ember: { label: 'Ember' },
+    ash: { label: 'Ash storm', bgTop: '#2a2a33', bgBottom: '#8a6a6a', particle: '#c9c0c0', fall: 0.35, drift: 0.6, psize: 0.18, sunI: 1.6, tag: '#8a6a6a' },
+  },
+  meadow: {
+    day: { label: 'Day' },
+    dusk: { label: 'Dusk', bgTop: '#ff8f6b', bgBottom: '#4a2f7a', sun: '#ffb27a', sunI: 1.6, hemiI: 1.0, hemiSky: '#ffc9a8', grass: '#5daa55', panel: '#2a1f4f', particle: '#ffcf7a', fall: 0, firefly: true, tag: '#ff7a59' },
+    autumn: { label: 'Autumn', bgTop: '#ffae63', bgBottom: '#ffe8c6', grass: '#d6a43f', leaf: ['#e8743b', '#f2a541', '#c94f2c'], flower: ['#ff6b3d', '#ffd84d', '#b5542c'], particle: '#f08a3c', fall: 0.45, drift: 0.35, psize: 0.22, tag: '#e8743b' },
+  },
+  glacier: {
+    day: { label: 'Day' },
+    aurora: { label: 'Aurora night', bgTop: '#081633', bgBottom: '#1d5a6e', sun: '#9fe8ff', sunI: 1.2, hemiI: 1.0, hemiSky: '#bfe9ff', particle: '#7dffc4', fall: 0.05, firefly: true, aurora: true, tag: '#22c39a' },
+    blizzard: { label: 'Blizzard', bgTop: '#8fa9bf', bgBottom: '#eef5fa', sunI: 1.5, hemiI: 1.9, fall: 2.4, drift: 1.6, psize: 0.2, tag: '#6c8ca8' },
+  },
+};
+function themeOf(n) {
+  const ch = CHAPTERS.find(c => c.n === n) || CHAPTERS[0];
+  return { ...ENVS[ch.env], ...((VARIANTS[ch.env] || {})[ch.variant] || {}), env: ch.env, variant: ch.variant };
+}
+const world = { group: new THREE.Group(), clouds: [], points: null, theme: ENVS.meadow, gems: [], props: [] };
 scene.add(world.group);
 const boardGroup = new THREE.Group(); scene.add(boardGroup);
 const trayGroup = new THREE.Group(); scene.add(trayGroup);
@@ -1116,6 +1869,16 @@ function addMesh(geo, mat, parent, pos, opts = {}) {
   if (opts.rot) m.rotation.set(...opts.rot); if (opts.scale) (Array.isArray(opts.scale) ? m.scale.set(...opts.scale) : m.scale.setScalar(opts.scale));
   m.castShadow = opts.cast !== false; m.receiveShadow = opts.receive !== false;
   parent.add(m); return m;
+}
+function decorProp(parent, x, z, s, th) { return th.props === 'volcano' ? basalt(parent, x, z, s, th) : tree(parent, x, z, s, th); }
+function basalt(parent, x, z, s, th) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.scale.setScalar(s);
+  const n = 3 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < n; i++) {
+    const h = rand(0.5, 1.7), m = addMesh(new THREE.CylinderGeometry(0.17, 0.19, h, 6), flatMat(i % 2 ? th.trunk : th.dirtDark), g, [rand(-0.3, 0.3), h / 2, rand(-0.3, 0.3)]);
+    if (i === 0) addMesh(new THREE.CylinderGeometry(0.17, 0.17, 0.04, 6), flatMat('#ff6a1a', { emissive: '#ff5a00', emissiveIntensity: 1.4 }), g, [m.position.x, h + 0.02, m.position.z], { cast: false });
+  }
+  parent.add(g); return g;
 }
 function tree(parent, x, z, s, th) {
   const g = new THREE.Group(); g.position.set(x, 0, z); g.scale.setScalar(s); g.rotation.y = rand(0, 6);
@@ -1136,12 +1899,13 @@ function islandChunk(parent, x, y, z, s, th) {
   const g = new THREE.Group(); g.position.set(x, y, z); g.scale.setScalar(s);
   addMesh(new THREE.CylinderGeometry(1, 0.85, 0.4, 7), [flatMat(th.dirt), flatMat(th.grass), flatMat(th.dirt)], g, [0, 0, 0], { cast: false });
   addMesh(new THREE.ConeGeometry(0.85, 1.4, 7), flatMat(th.dirtDark), g, [0, -0.9, 0], { rot: [Math.PI, 0, 0], cast: false });
-  tree(g, 0.2, 0, 0.7, th);
+  decorProp(g, 0.2, 0, 0.7, th);
   parent.add(g); world.props.push({ o: g, kind: 'bob', ph: rand(0, 6), y }); return g;
 }
 
-function buildWorld(themeName, bw, bh, nDice = 3) {
-  const th = THEMES[themeName] || THEMES.meadow; world.theme = th; world.themeName = themeName;
+function buildWorld(th, bw, bh, nDice = 3) {
+  world.theme = th;
+  sun.color.set(th.sun || '#fff0dc'); sun.intensity = th.sunI ?? 2.3; hemi.intensity = th.hemiI ?? 1.6; hemi.color.set(th.hemiSky || '#ffffff');
   clearGroup(world.group); world.clouds = []; world.props = []; world.gems = [];
   bgU.top.value.set(th.bgTop); bgU.bottom.value.set(th.bgBottom);
   layout.bw = bw; layout.bh = bh;
@@ -1157,9 +1921,9 @@ function buildWorld(themeName, bw, bh, nDice = 3) {
   for (let i = 0; i < 5; i++) addMesh(new THREE.DodecahedronGeometry(rand(0.2, 0.45), 0), flatMat(th.dirtDark), W, [rand(-R, R) * 0.7, rand(-4.6, -3.2), rand(-1, 0.5)], { rot: [rand(0, 3), rand(0, 3), 0], cast: false });
   // decor on island
   const side = bw ? bw / 2 + 1.0 : 1.6;
-  tree(W, -side, -1.1, 1.15, th); tree(W, side, -1.2, 1.0, th);
-  tree(W, -side - 0.6, 0.4, 0.75, th); tree(W, side + 0.5, 0.5, 0.8, th);
-  if (!bw) { tree(W, 0.3, -1.2, 1.4, th); tree(W, -0.6, 0.6, 0.7, th); }
+  decorProp(W, -side, -1.1, 1.15, th); decorProp(W, side, -1.2, 1.0, th);
+  decorProp(W, -side - 0.6, 0.4, 0.75, th); decorProp(W, side + 0.5, 0.5, 0.8, th);
+  if (!bw) { decorProp(W, 0.3, -1.2, 1.4, th); decorProp(W, -0.6, 0.6, 0.7, th); }
   for (let i = 0; i < 6; i++) {
     const sx = (i % 2 ? 1 : -1) * rand(side - 0.3, R - 0.4);
     addMesh(new THREE.DodecahedronGeometry(rand(0.12, 0.28), 0), flatMat(th.rock), W, [sx, 0.08, rand(-1.6, 1.4)], { rot: [rand(0, 3), rand(0, 3), 0] });
@@ -1169,7 +1933,17 @@ function buildWorld(themeName, bw, bh, nDice = 3) {
     const fl = addMesh(new THREE.TetrahedronGeometry(rand(0.05, 0.09), 0), flatMat(th.flower[i % th.flower.length], { emissive: th.flower[i % th.flower.length], emissiveIntensity: 0.15 }), W, [x, 0.06, z], { rot: [rand(0, 3), rand(0, 3), 0], cast: false });
     world.props.push({ o: fl, kind: 'spin', ph: rand(0, 6) });
   }
-  if (themeName === 'glacier') {
+  if (th.props === 'volcano') {
+    for (let i = 0; i < 4; i++) {
+      const pool = addMesh(new THREE.CircleGeometry(rand(0.28, 0.5), 7), flatMat('#ff6a1a', { emissive: '#ff4a00', emissiveIntensity: 1.6, roughness: 0.3 }), W, [(i % 2 ? 1 : -1) * rand(side - 0.2, R - 0.5), 0.015, rand(-1.4, 1.5)], { rot: [-Math.PI / 2, 0, rand(0, 3)], cast: false });
+      world.props.push({ o: pool, kind: 'lava', ph: rand(0, 6) });
+    }
+    const vol = new THREE.Group(); vol.position.set(-7, -3, -20);
+    addMesh(new THREE.ConeGeometry(5, 9, 9), flatMat(th.dirtDark), vol, [0, 4.5, 0], { cast: false, receive: false });
+    addMesh(new THREE.CylinderGeometry(1.0, 1.2, 0.4, 9), flatMat('#ff6a1a', { emissive: '#ff4a00', emissiveIntensity: 2 }), vol, [0, 9, 0], { cast: false, receive: false });
+    W.add(vol);
+  }
+  if (th.env === 'glacier') {
     for (let i = 0; i < 6; i++) {
       const x = (i % 2 ? 1 : -1) * rand(side - 0.2, R - 0.3);
       addMesh(new THREE.ConeGeometry(rand(0.12, 0.22), rand(0.5, 1.1), 4), flatMat('#bfeaff', { emissive: '#7fd3ff', emissiveIntensity: 0.3, roughness: 0.2 }), W, [x, 0.3, rand(-1.6, 1.2)], { rot: [rand(-0.2, 0.2), rand(0, 3), rand(-0.2, 0.2)] });
@@ -1182,8 +1956,18 @@ function buildWorld(themeName, bw, bh, nDice = 3) {
   const N = 140, pos = new Float32Array(N * 3);
   for (let i = 0; i < N; i++) { pos[i * 3] = rand(-10, 10); pos[i * 3 + 1] = rand(-4, 13); pos[i * 3 + 2] = rand(-8, 4); }
   const pg = new THREE.BufferGeometry(); pg.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  world.points = new THREE.Points(pg, new THREE.PointsMaterial({ map: glowTex, color: th.particle, size: 0.16, transparent: true, depthWrite: false, opacity: 0.85, blending: THREE.AdditiveBlending }));
+  world.points = new THREE.Points(pg, new THREE.PointsMaterial({ map: glowTex, color: th.particle, size: th.psize || 0.16, transparent: true, depthWrite: false, opacity: 0.85, blending: THREE.AdditiveBlending }));
   W.add(world.points);
+  world.ribbons = [];
+  if (th.aurora) {
+    const tex = canvasTex(64, (g, sz) => { const gr = g.createLinearGradient(0, 0, 0, sz); gr.addColorStop(0, 'rgba(120,255,200,0)'); gr.addColorStop(0.5, 'rgba(120,255,200,1)'); gr.addColorStop(1, 'rgba(160,110,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, sz, sz); });
+    for (let i = 0; i < 3; i++) {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(26, 3.2, 24, 1), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.45, side: THREE.DoubleSide }));
+      m.position.set(rand(-3, 3), 9 + i * 1.6, -15 - i * 2); m.rotation.z = rand(-0.15, 0.15);
+      m.userData.base = m.geometry.attributes.position.array.slice(); m.userData.ph = rand(0, 6);
+      W.add(m); world.ribbons.push(m);
+    }
+  }
   // board panel + frame + tray
   if (bw) {
     const pw = bw + 0.36, ph = bh + 0.3, ppx = 64;
@@ -1380,18 +2164,45 @@ function makeBlockView(b, x, y) {
     body.rotation.set(rand(0, 3), rand(0, 3), rand(0, 3)); body.scale.set(0.95, 0.9, 0.85);
     const moss = new THREE.Mesh(new THREE.IcosahedronGeometry(0.16, 0), flatMat(world.theme.grass));
     moss.position.set(rand(-0.2, 0.2), 0.38, 0.1); moss.scale.set(1.4, 0.5, 1.2); g.add(moss);
+  } else if (b.k === 'w') {
+    body = new THREE.Mesh(G.block, new THREE.MeshStandardMaterial({ color: '#ffffff', flatShading: true, roughness: 0.35, metalness: 0.1, emissive: '#ff4fd8', emissiveIntensity: 0.6 }));
+    label = new THREE.Mesh(G.label, new THREE.MeshBasicMaterial({ map: labelTex('★'), transparent: true, depthWrite: false, color: 0xffffff }));
+    label.position.z = 0.447; label.renderOrder = 2; g.add(label);
   } else {
     body = new THREE.Mesh(G.block, new THREE.MeshStandardMaterial({ color: valColor(b.v).clone(), flatShading: true, roughness: 0.5, metalness: 0.05, emissive: '#000000' }));
     label = new THREE.Mesh(G.label, new THREE.MeshBasicMaterial({ map: labelTex(b.v), transparent: true, depthWrite: false, color: 0xe2e2e2 }));
     label.position.z = 0.447; label.renderOrder = 2; g.add(label);
   }
   body.castShadow = body.receiveShadow = true; g.add(body);
-  const v = { id: b.id, g, body, label, ice: null, val: b.v, k: b.k, blaze: false, glow: 0, x, y };
+  const v = { id: b.id, g, body, label, ice: null, val: b.v, k: b.k, blaze: false, glow: 0, x, y, bomb: b.bomb || 0 };
   if (b.ice) addIce(v);
+  if (b.bomb) addBomb(v);
   if (b.blaze) setBlaze(v, true);
   cellPos(x, y, g.position); boardGroup.add(g); views.set(b.id, v);
   return v;
 }
+const timerCache = {};
+function timerTex(n) {
+  return timerCache[n] || (timerCache[n] = canvasTex(64, (g, sz) => {
+    g.beginPath(); g.arc(sz / 2, sz / 2, sz / 2 - 4, 0, Math.PI * 2); g.fillStyle = n <= 1 ? '#ff2a4a' : '#2b2235'; g.fill();
+    g.lineWidth = 6; g.strokeStyle = '#ff9a3c'; g.stroke();
+    g.font = `700 36px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(String(n), sz / 2, sz / 2 + 3);
+  }));
+}
+G.wick = new THREE.CylinderGeometry(0.025, 0.025, 0.2, 4);
+G.cap = new THREE.CylinderGeometry(0.15, 0.19, 0.1, 8);
+function addBomb(v) {
+  const f = new THREE.Group(); f.position.set(0.22, 0.46, 0.1);
+  const cap = new THREE.Mesh(G.cap, flatMat('#2b2235', { roughness: 0.4 })); cap.castShadow = true; f.add(cap);
+  const wick = new THREE.Mesh(G.wick, flatMat('#d9b27c')); wick.position.set(0.04, 0.13, 0); wick.rotation.z = -0.4; f.add(wick);
+  const spark = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: '#ffb030', transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  spark.position.set(0.09, 0.24, 0); spark.scale.setScalar(0.32); f.add(spark);
+  const badge = new THREE.Sprite(new THREE.SpriteMaterial({ map: timerTex(v.bomb), transparent: true }));
+  badge.position.set(-0.3, 0.3, 0.5); badge.scale.setScalar(0.36); badge.renderOrder = 4;
+  v.g.add(f, badge); v.bombParts = { f, spark, badge };
+}
+function setBombTimer(v, n) { v.bomb = n; if (v.bombParts) v.bombParts.badge.material.map = timerTex(n); }
+const blockById = id => S && S.cells.find(c => c && c.id === id);
 function addIce(v) {
   const shell = new THREE.Group();
   const m = new THREE.Mesh(G.ice, new THREE.MeshStandardMaterial({ color: '#d4f1ff', transparent: true, opacity: 0.42, roughness: 0.08, metalness: 0.1, emissive: '#6fd0ff', emissiveIntensity: 0.3, flatShading: true, depthWrite: false }));
@@ -1428,19 +2239,25 @@ ghostLabel.position.z = 0.46; ghostLabel.renderOrder = 6; ghostBody.renderOrder 
 ghost.add(ghostBody, ghostLabel); ghost.visible = false; scene.add(ghost);
 const colStrip = new THREE.Mesh(G.plane, new THREE.MeshBasicMaterial({ color: '#ffffff', transparent: true, opacity: 0.12, depthWrite: false }));
 colStrip.visible = false; scene.add(colStrip);
+const ghost2 = new THREE.Group();
+const ghost2Body = new THREE.Mesh(G.block, new THREE.MeshStandardMaterial({ color: '#ffffff', transparent: true, opacity: 0.5, depthWrite: false, emissive: '#2fd6a0', emissiveIntensity: 0.5, flatShading: true }));
+const ghost2Label = new THREE.Mesh(G.label, new THREE.MeshBasicMaterial({ map: labelTex(1), transparent: true, depthWrite: false }));
+ghost2Label.position.z = 0.46; ghost2Label.renderOrder = 6; ghost2Body.renderOrder = 5; ghost2.add(ghost2Body, ghost2Label); ghost2.visible = false; scene.add(ghost2);
 let preview = null; // {key, ids, ok, burst, tgt}
 function showPreview(ti, tgt) {
   const key = tgt ? `${tgt.kind}${tgt.x},${tgt.y}` : 'none';
   if (preview && preview.key === key) return;
   clearPreviewGlow();
-  if (!tgt) { preview = { key }; ghost.visible = false; colStrip.visible = false; return; }
+  if (!tgt) { preview = { key }; ghost.visible = false; ghost2.visible = false; colStrip.visible = false; return; }
   const pv = L.preview(S, ti, tgt);
   preview = { key, tgt, ...pv };
+  const rv = typeof pv.result === 'number' ? clamp(pv.result, 1, 20) : null;
+  if (pv.ok && pv.extra) { ghost2.visible = true; cellPos(pv.extra.x, pv.extra.y, ghost2.position); ghost2Label.material.map = labelTex(pv.extra.v); ghost2Body.material.color.copy(valColor(pv.extra.v)); } else ghost2.visible = false;
   ghost.visible = true;
   cellPos(tgt.x, tgt.y, ghost.position); ghost.position.z = tgt.kind === 'stack' ? 0.06 : 0;
   ghost.scale.setScalar(tgt.kind === 'stack' ? 1.08 : 1);
-  ghostBody.material.color.copy(pv.ok ? valColor(clamp(pv.result, 1, 20)) : new THREE.Color('#ff3355'));
-  ghostBody.material.emissive.copy(pv.ok ? (pv.burst ? new THREE.Color('#ffb020') : valColor(clamp(pv.result, 1, 20))) : new THREE.Color('#ff0033'));
+  ghostBody.material.color.copy(!pv.ok ? new THREE.Color('#ff3355') : rv ? valColor(rv) : new THREE.Color('#ffffff'));
+  ghostBody.material.emissive.copy(!pv.ok ? new THREE.Color('#ff0033') : pv.burst ? new THREE.Color('#ffb020') : rv ? valColor(rv) : new THREE.Color(EMPS.wild.color));
   ghostLabel.material.map = labelTex(pv.result, !pv.ok);
   if (tgt.kind === 'drop' && pv.ok) {
     colStrip.visible = true; const top = S.h + 0.2;
@@ -1452,7 +2269,7 @@ function showPreview(ti, tgt) {
 function clearPreviewGlow() {
   for (const v of views.values()) { if (v.glow) { v.glow = 0; if (v.k === 'n') { v.body.material.emissive.set(v.blaze ? '#ff6a00' : '#000000'); v.body.material.emissiveIntensity = v.blaze ? 0.45 : 1; } } }
 }
-function hidePreview() { clearPreviewGlow(); preview = null; ghost.visible = false; colStrip.visible = false; }
+function hidePreview() { clearPreviewGlow(); preview = null; ghost.visible = false; ghost2.visible = false; colStrip.visible = false; }
 
 // =============== tray / dice ===============
 let trayViews = [];
@@ -1521,6 +2338,8 @@ const EMP_SVG = {
   loaded: '<path d="M12 3l2.6 5.6 6 .7-4.4 4.1 1.2 6L12 16.5 6.6 19.4l1.2-6L3.4 9.3l6-.7z" fill="#fff"/>',
   blazing: '<path d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 2-5 3-6 0 2 1 3 2 3 0-3-1-6 1-9z" fill="#fff"/>',
   mirror: '<path d="M12 3v18M4 7l5 5-5 5zM20 7l-5 5 5 5z" fill="#fff" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>',
+  split: '<rect x="3" y="8" width="8" height="8" rx="2" fill="#fff"/><rect x="13" y="8" width="8" height="8" rx="2" fill="#fff"/>',
+  wild: '<path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.2 5.8 20.9l1.6-7L2 9.2l7.1-.6z" fill="#fff"/>',
 };
 const empIcon = (e, size = 40) => `<div class="emp-ico" style="background:${EMPS[e].color};width:${size}px;height:${size}px"><svg viewBox="0 0 24 24">${EMP_SVG[e]}</svg></div>`;
 function dieSvg(type) {
@@ -1546,6 +2365,7 @@ function goalIcon(g) {
     case 'ice': return `<div class="gicon" style="background:linear-gradient(135deg,#e5f8ff,#7fd3ff);color:#2b6a9a">❄</div>`;
     case 'stone': return `<div class="gicon" style="background:#9a93ad"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M5 17l2-8 6-4 6 5-1 8-8 2z" fill="#d5cfe2"/></svg></div>`;
     case 'score': return `<div class="gicon" style="background:#ffd23f">★</div>`;
+    case 'bomb': return `<div class="gicon" style="background:#2b2235"><svg viewBox="0 0 24 24" width="22" height="22"><circle cx="11" cy="14" r="7" fill="#ff9a3c"/><path d="M15 8l3-3" stroke="#d9b27c" stroke-width="2"/><circle cx="19" cy="4" r="2" fill="#ffe066"/></svg></div>`;
     case 'clear': return `<div class="gicon" style="background:#7b5cff"><svg viewBox="0 0 24 24" width="20" height="20"><rect x="4" y="4" width="16" height="16" rx="3" fill="none" stroke="#fff" stroke-width="2.4" stroke-dasharray="4 3"/></svg></div>`;
   }
   return '';
@@ -1559,6 +2379,7 @@ function goalText(g, long = false) {
     case 'ice': return long ? `Break all ${g.n} ice` : '';
     case 'stone': return long ? `Smash all ${g.n} stone${g.n > 1 ? 's' : ''}` : '';
     case 'score': return long ? `Score ${g.n}` : '';
+    case 'bomb': return long ? `Blast ${g.n} bomb${g.n > 1 ? 's' : ''} before ${g.n > 1 ? 'they fizzle' : 'it fizzles'}` : '';
     case 'clear': return long ? 'Clear the whole board' : '';
   }
 }
@@ -1566,7 +2387,7 @@ let lastGoalCur = [];
 let shownScore = 0;
 function updateHUD() {
   if (!S) return;
-  $('#lvl-name').innerHTML = `<div><small>World ${level.world} · ${esc(level.id)}</small>${esc(level.name)}</div>`;
+  $('#lvl-name').innerHTML = `<div><small>Chapter ${level.chapter} · ${esc(level.id)}</small>${esc(level.name)}</div>`;
   $('#rolls-pill').innerHTML = `${ICON.dice}${S.rollsLeft}`;
   const gp = L.goalProgress(S);
   $('#goals').innerHTML = gp.map((p, i) => {
@@ -1602,7 +2423,7 @@ function toast(text, ms = 1800) {
 }
 
 // =============== game flow ===============
-function themeForLevel(lv) { return WORLDS.find(w => w.id === lv.world).theme; }
+function themeForLevel(lv) { return themeOf(lv.chapter); }
 async function startLevel(lv) {
   closeModal(); closePop();
   level = lv; mode = 'play';
@@ -1634,10 +2455,26 @@ async function startLevel(lv) {
   if (lv.tip && !lv.teach) toast(lv.tip, 3800);
   hint(P.seen.rolled ? '' : 'Tap ROLL to throw your dice!');
 }
+function playBombTicks() {
+  if (S.ticked && S.ticked.length) sfx.tick(8);
+  for (const id of S.ticked || []) {
+    const v = views.get(id), b = blockById(id); if (!v || !b || !b.bomb) continue;
+    setBombTimer(v, b.bomb); const bd = v.bombParts.badge;
+    tween(380, e => bd.scale.setScalar(0.36 * (1 + 0.6 * Math.sin(e * Math.PI))));
+  }
+  for (const f of S.fizzled || []) {
+    const v = views.get(f.id); if (v) { boardGroup.remove(v.g); views.delete(f.id); }
+    const p = cellPos(f.x, f.y);
+    spawnSparks(p, '#8f889f', 18, 1.6, 0.7, 1.0, -0.8); spawnSparks(p, '#ff9a3c', 6, 2, 0.3, 0.4);
+    sfx.fizz(); floatText('FIZZLE', p.clone().add(new THREE.Vector3(0, 0.4, 0.6)), { color: '#d0c8e0', size: 18 });
+    squash(makeBlockView({ id: f.id, k: 's', v: 0 }, f.x, f.y), 0.4, 380);
+  }
+}
 async function doRoll() {
   if (busy || !S || S.status !== 'roll') return;
   busy = true; snapshot = null; hint(''); closePop();
   L.roll(S); updateHUD();
+  playBombTicks();
   await rollAnim();
   busy = false;
   if (!P.seen.rolled) { P.seen.rolled = 1; save(); }
@@ -1660,7 +2497,7 @@ function afterMove() {
   updateHUD();
   if (!S) return;
   if (S.status === 'won') return winSequence();
-  if (S.status === 'lost') return loseSequence('Out of rolls');
+  if (S.status === 'lost') return loseSequence(S.lostReason === 'fizzle' ? 'A bomb fizzled!' : 'Out of rolls');
   if (S.status === 'stuck') return stuckPrompt();
 }
 function undo() {
@@ -1704,9 +2541,15 @@ async function playPlace(st, ti) {
   }
   let v = views.get(st.id);
   if (st.mode === 'drop') {
-    v = makeBlockView({ id: st.id, k: 'n', v: st.v, ice: 0, blaze: st.die.emp === 'blazing' ? 1 : 0 }, st.x, st.y);
+    v = makeBlockView({ id: st.id, k: st.k || 'n', v: st.v, ice: 0, blaze: st.die.emp === 'blazing' ? 1 : 0 }, st.x, st.y);
     sfx.thunk(); addShake(0.06);
     spawnSparks(new THREE.Vector3(target.x, target.y - 0.45, 0.3), '#ffffff', 8, 1.6, 0.3, 0.4);
+    if (st.k === 'w') spawnSparks(target, EMPS.wild.color, 16, 2.5, 0.4, 0.6, 0, starTex);
+    if (st.extra) {
+      const e = st.extra, v2 = makeBlockView({ id: e.id, k: 'n', v: e.v, ice: 0, blaze: 0 }, e.x, e.y), p2 = cellPos(e.x, e.y);
+      v2.g.position.copy(target); tween(220, k => v2.g.position.lerpVectors(target, p2, k), E.outBack).then(() => squash(v2, 0.35, 280));
+      spawnSparks(target, EMPS.split.color, 14, 2.5, 0.35, 0.5); sfx.pop();
+    }
     await squash(v, 0.4, 320);
   } else if (v) {
     sfx.thunk(0.7); addShake(0.05);
@@ -1745,6 +2588,14 @@ async function playResolve(st) {
       spawnSparks(p, '#ffe066', 30, 6, 0.45, 0.7, 2); spawnSparks(p, '#ff7a1a', 16, 4, 0.5, 0.6);
     }
   }
+  if (st.blasts && st.blasts.length) {
+    hitstop(70); sfx.boom(); addShake(0.45); vibrate([40, 20, 60]);
+    if (!st.bursts.length) banner(st.blasts.length > 1 ? `BOOM ×${st.blasts.length}!` : 'BOOM!', 'twenty');
+    for (const [x, y] of st.blasts) {
+      const p = cellPos(x, y); spawnRing(p, '#ff7a1a', 6, 0.6); spawnRing(p, '#ffd23f', 3.5, 0.45);
+      spawnSparks(p, '#ff9a3c', 34, 6.5, 0.5, 0.8, 2); spawnSparks(p, '#3a2f45', 14, 3, 0.55, 0.9, 1); spawnShards(p, '#2b2235', 10, 4.5);
+    }
+  }
   if (st.lines.length) {
     sfx.laser(); addShake(0.14); if (!st.bursts.length) banner(st.lines.length > 1 ? `${st.lines.length}× LINE BONUS!` : 'LINE BONUS!', 'line');
     st.lines.forEach(spawnLaser);
@@ -1759,7 +2610,7 @@ async function playResolve(st) {
     const v = views.get(d.id); if (!v) continue;
     setVal(v, d.v); squash(v, 0.25, 260); floatText('-1', cellPos(d.x, d.y).add(new THREE.Vector3(0, 0.3, 0.5)), { color: '#ffd0d0', size: 18 });
   }
-  if (st.bursts.length || st.lines.length) await wait(140);
+  if (st.bursts.length || st.lines.length || (st.blasts && st.blasts.length)) await wait(140);
   // shatter
   const groupSize = st.cleared.length;
   if (groupSize) {
@@ -1768,7 +2619,7 @@ async function playResolve(st) {
     for (const c of st.cleared) {
       const v = views.get(c.id), p = cellPos(c.x, c.y);
       center.add(p);
-      const col = c.k === 's' ? '#9a93ad' : valColor(clamp(c.v, 1, 20));
+      const col = c.k === 's' ? '#9a93ad' : c.k === 'w' ? EMPS.wild.color : valColor(clamp(c.v, 1, 20));
       spawnShards(p, col, reduced() ? 5 : 11, 3.4);
       spawnSparks(p, c.k === 's' ? '#ffffff' : col, 6, 2.5, 0.35, 0.5, 0, starTex);
       if (c.ice) spawnShards(p, '#d4f1ff', 6, 3);
@@ -1814,7 +2665,7 @@ async function winSequence() {
   busy = true; hint(''); updateHUD();
   sfx.win(); banner('GOAL!', 'big'); vibrate([40, 30, 60]);
   spawnConfetti(new THREE.Vector3(0, S.h * 0.6, 1), 90, 7);
-  const prevStars = P.stars[level.id] || 0;
+  const prevStars = P.stars[level.key] || 0;
   // bonus coins for rolls left
   const rb = $('#roll-btn').getBoundingClientRect(), sp = $('#score-pill').getBoundingClientRect();
   for (let i = 0; i < S.rollsLeft; i++) {
@@ -1830,12 +2681,12 @@ async function winSequence() {
   const stars = 1 + (S.rollsLeft >= 2 ? 1 : 0) + (final >= level.star3 ? 1 : 0);
   const newStars = Math.max(0, stars - prevStars);
   const gems = newStars * GEMS_PER_STAR;
-  P.stars[level.id] = Math.max(prevStars, stars); P.best[level.id] = Math.max(P.best[level.id] || 0, final); P.gems += gems;
+  P.stars[level.key] = Math.max(prevStars, stars); P.best[level.key] = Math.max(P.best[level.key] || 0, final); P.gems += gems;
   let rewardHtml = '';
   if (!prevStars && level.reward) rewardHtml = grantReward(level.reward);
   save();
   await wait(900);
-  const idx = levelIndex(level.id), next = LEVELS[idx + 1];
+  const idx = levelIndex(level.key), next = LEVELS[idx + 1];
   openModal(`<h1>Level Clear!</h1><div class="sub">${esc(level.id)} · ${esc(level.name)}</div>
     <div class="stars-big">${[0, 1, 2].map(i => ICON.star(true)).join('')}</div>
     <div class="score-big">${final}</div>
@@ -2015,7 +2866,7 @@ function onAct(act, ds) {
     case 'giveup': closeModal(); loseSequence('Stuck!'); break;
     case 'map': closeModal(); showMap(); break;
     case 'retry': closeModal(); startLevel(level); break;
-    case 'next': { const n = LEVELS[levelIndex(level.id) + 1]; closeModal(); if (n) showIntro(n); break; }
+    case 'next': { const n = LEVELS[levelIndex(level.key) + 1]; closeModal(); if (n) showIntro(n); break; }
     case 'play': startLevel(LEVELS[+ds.i]); break;
     case 'collection': showCollection(ds.back ? +ds.back : null); break;
     case 'settings': showSettings(); break;
@@ -2079,6 +2930,12 @@ const TEACH = {
     { rows: ['. . .', 'i3 . 3'], die: { v: 3, col: 1, row: 1 }, cap: 'Match next to the ice' },
     { rows: ['. . .', '*3 x x'], cap: 'First match thaws it' },
     { rows: ['. . .', 'x x x'], cap: 'Second match breaks it' }] },
+  bomb: { title: 'Bombs', note: 'Each roll ticks a bomb timer down by 1. Clear the bomb in a match before it reaches 0 and it blasts everything in the 3×3 around it. At 0 it fizzles into stone.', panels: [
+    { rows: ['. . . .', '2 9 . .', 'b4 4 . 1'], die: { v: 4, col: 2, row: 2 }, cap: 'Match the bomb' },
+    { rows: ['. . . .', 'x x . .', 'x x x 1'], boom: [2, 0], cap: 'BOOM! 3×3 blast' }] },
+  shapes: { title: 'Shaped boards', note: 'Striped cells are holes. Nothing sits in them; blocks fall straight past to the next open cell.', panels: [
+    { rows: ['. . .', '# . .', '. . 3'], die: { v: 4, col: 0, row: 2 }, cap: 'Drop next to a hole' },
+    { rows: ['. . .', '# . .', '4 . 3'], cap: 'It falls right past' }] },
   stone: { title: 'Stone', note: 'Stones have no number and never match. A burst next to them, or a line bonus through their row, smashes them.', panels: [
     { rows: ['. . .', 'S 19 4'], die: { v: 1, col: 1, row: 1, onto: true }, cap: 'Burst right next to it' },
     { rows: ['. . .', 'x x *3'], boom: [1, 1], cap: 'Stone smashed!' }] },
@@ -2093,11 +2950,13 @@ function teachPanel(p) {
     const x = 4 + c * cs + 2, y = top + r * cs + 2, w = cs - 4;
     if (t === '.') { s += `<rect x="${x}" y="${y}" width="${w}" height="${w}" rx="5" fill="#3c3274"/>`; return; }
     if (t === 'x') { s += `<rect x="${x}" y="${y}" width="${w}" height="${w}" rx="5" fill="#3c3274" stroke="#fff" stroke-dasharray="3 3" stroke-width="1.5"/><text x="${x + w / 2}" y="${y + w / 2 + 5}" text-anchor="middle" font-size="14" fill="#ffe066">✦</text>`; return; }
+    if (t === '#') { s += `<rect x="${x}" y="${y}" width="${w}" height="${w}" rx="5" fill="#1a1433"/><path d="M${x + 4} ${y + w - 2}L${x + w - 2} ${y + 4}M${x + 2} ${y + w / 2}L${x + w / 2} ${y + 2}M${x + w / 2} ${y + w - 2}L${x + w - 2} ${y + w / 2}" stroke="#3c3274" stroke-width="2"/>`; return; }
     if (t === 'S') { s += `<path d="M${x + 3} ${y + w - 3}l3-${w - 10} ${w / 2 - 4}-5 ${w / 2 - 2} 6-1 ${w - 10}z" fill="#9a93ad" stroke="#6f6886"/>`; return; }
-    let v = t, ice = false, hi = false;
-    if (v[0] === 'i') { ice = true; v = v.slice(1); } if (v[0] === '*') { hi = true; v = v.slice(1); }
+    let v = t, ice = false, hi = false, bomb = false;
+    if (v[0] === 'i') { ice = true; v = v.slice(1); } if (v[0] === '*') { hi = true; v = v.slice(1); } if (v[0] === 'b') { bomb = true; v = v.slice(1); }
     s += `<rect x="${x}" y="${y}" width="${w}" height="${w}" rx="5" fill="${cssVal(+v)}" ${hi ? 'stroke="#ffe066" stroke-width="2.5"' : ''}/>`;
     s += `<text x="${x + w / 2}" y="${y + w / 2 + 5}" text-anchor="middle" font-family="Fredoka,system-ui" font-weight="700" font-size="${v.length > 1 ? 12 : 14}" fill="#fff">${v}</text>`;
+    if (bomb) s += `<circle cx="${x + w - 4}" cy="${y + 4}" r="5" fill="#2b2235"/><path d="M${x + w - 1} ${y + 1}l3 -4" stroke="#ff9a3c" stroke-width="2"/>`;
     if (ice) s += `<rect x="${x - 1}" y="${y - 1}" width="${w + 2}" height="${w + 2}" rx="6" fill="#cdefff" fill-opacity=".45" stroke="#fff" stroke-width="1.5"/>`;
   }));
   if (p.boom) { const [r, c] = p.boom; s += `<circle cx="${4 + c * cs + cs / 2}" cy="${top + r * cs + cs / 2}" r="${cs * 0.75}" fill="none" stroke="#ffd23f" stroke-width="3" opacity=".9"/>`; }
@@ -2141,12 +3000,12 @@ function updateBands(announce = true) {
 
 // =============== screens ===============
 function showIntro(lv) {
-  const i = levelIndex(lv.id);
+  const i = levelIndex(lv.key);
   const lo = P.loadout.map(dieById).filter(Boolean);
-  openModal(`<div class="row center"><span class="tag" style="background:${THEMES[themeForLevel(lv)].tag};padding:3px 10px;border-radius:999px;color:#fff;font-weight:700;font-size:12px;letter-spacing:.08em">WORLD ${lv.world} · ${esc(lv.id)}</span></div>
+  openModal(`<div class="row center"><span class="tag" style="background:${themeForLevel(lv).tag};padding:3px 10px;border-radius:999px;color:#fff;font-weight:700;font-size:12px;letter-spacing:.08em">CHAPTER ${lv.chapter} · ${esc(lv.id)}${lv.boss ? ' · BOSS' : ''}</span></div>
     <h1>${esc(lv.name)}</h1>
     <div class="sub">${lv.rolls} rolls · ${lv.rows[0].trim().split(/\s+/).length}×${lv.rows.length} board</div>
-    <div class="goal-list">${lv.goals.map(g => { const gg = { ...g }; if ((g.t === 'ice' || g.t === 'stone') && !g.n) gg.n = L.createGame(lv, []).goals.find(x => x.t === g.t).n; return `<div class="goal-big">${goalIcon(gg)}<span>${goalText(gg, true)}</span></div>`; }).join('')}</div>
+    <div class="goal-list">${lv.goals.map(g => { const gg = { ...g }; if (['ice', 'stone', 'bomb'].includes(g.t) && !g.n) gg.n = L.createGame(lv, []).goals.find(x => x.t === g.t).n; return `<div class="goal-big">${goalIcon(gg)}<span>${goalText(gg, true)}</span></div>`; }).join('')}</div>
     ${lv.teach ? teachCard(lv.teach) : lv.tip ? `<div class="tip">💡 ${esc(lv.tip)}</div>` : ''}
     <h3>Your dice (${lo.length}/${P.slots})</h3>
     <div class="dice-row">${lo.map(d => `<div class="die-card">${dieSvg(d.type)}${d.emp ? `<span class="emp" style="background:${EMPS[d.emp].color}">${EMPS[d.emp].name}</span>` : '<span class="emp" style="color:#b3a6cc">plain</span>'}</div>`).join('')}</div>
@@ -2214,20 +3073,21 @@ function showMap() {
     <button class="icon-btn" data-act="howto" aria-label="How to play">?</button><button class="icon-btn" data-act="collection" aria-label="Dice">${ICON.dice}</button><button class="icon-btn" data-act="settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></button></div>
     <div class="logo">${'DICE'.split('').map((c, i) => `<span style="animation-delay:${i * 0.12}s">${c}</span>`).join('')} ${'DROP'.split('').map((c, i) => `<span style="animation-delay:${(i + 4) * 0.12}s">${c}</span>`).join('')}</div>
     <div class="tagline">Roll. Drop. Match. Burst!</div>`];
-  const nextIdx = LEVELS.findIndex((l, i) => levelUnlocked(i) && !P.stars[l.id]);
-  for (const w of WORLDS) {
-    const lvls = LEVELS.map((l, i) => [l, i]).filter(([l]) => l.world === w.id);
-    html.push(`<div class="world"><span class="tag" style="background:${THEMES[w.theme].tag}">World ${w.id}</span><h2>${esc(w.name)}</h2><p>${esc(w.blurb)}</p><div class="path">`);
+  const nextIdx = LEVELS.findIndex((l, i) => levelUnlocked(i) && !P.stars[l.key]);
+  for (const ch of CHAPTERS) {
+    const lvls = LEVELS.map((l, i) => [l, i]).filter(([l]) => l.chapter === ch.n), th = themeOf(ch.n);
+    const chStars = lvls.reduce((a, [l]) => a + (P.stars[l.key] || 0), 0);
+    html.push(`<div class="world"><span class="tag" style="background:${th.tag}">Chapter ${ch.n} · ${esc(th.label || '')}</span><h2>${esc(ch.name)}</h2><p>${esc(ch.blurb)} · ★ ${chStars}/${lvls.length * 3}</p><div class="path">`);
     lvls.forEach(([l, i], k) => {
-      const un = levelUnlocked(i), st = P.stars[l.id] || 0;
+      const un = levelUnlocked(i), st = P.stars[l.key] || 0;
       const off = Math.sin(k * 1.1) * 90;
       const cls = !un ? 'locked' : i === nextIdx ? 'next' : st ? 'won' : '';
-      const boss = /Boss|Heart/.test(l.name);
-      html.push(`<div class="node-row" style="transform:translateX(${off}px)"><button class="node ${cls}" ${un ? `data-act="level" data-i="${i}"` : ''}>${un ? esc(l.id.split('-')[1]) : '<svg viewBox="0 0 24 24" width="24" height="24"><rect x="5" y="10" width="14" height="10" rx="2" fill="currentColor"/><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2.4"/></svg>'}${boss ? '<span class="boss">BOSS</span>' : ''}${un ? `<span class="stars">${[0, 1, 2].map(s => ICON.star(s < st)).join('')}</span>` : ''}</button></div>`);
+      const boss = l.boss;
+      html.push(`<div class="node-row" style="transform:translateX(${off}px)"><button class="node ${cls}" ${un ? `data-act="level" data-i="${i}"` : ''}>${un ? l.slot : '<svg viewBox="0 0 24 24" width="24" height="24"><rect x="5" y="10" width="14" height="10" rx="2" fill="currentColor"/><path d="M8 10V7a4 4 0 0 1 8 0v3" fill="none" stroke="currentColor" stroke-width="2.4"/></svg>'}${boss ? '<span class="boss">BOSS</span>' : ''}${un ? `<span class="stars">${[0, 1, 2].map(s => ICON.star(s < st)).join('')}</span>` : ''}</button></div>`);
     });
     html.push(`</div></div>`);
   }
-  html.push(`<div class="world" style="text-align:center"><h2>More worlds coming</h2><p>Volcano, Clockwork, Crystal Caves and the Void, with D10, D12 and D20.</p></div></div>`);
+  html.push(`<div class="world" style="text-align:center"><h2>More chapters coming</h2><p>Volcano, Clockwork, Crystal Caves, Reef, Desert and the Void, with D10, D12 and D20.</p></div></div>`);
   const sc = $('#screen-map'); sc.innerHTML = html.join(''); sc.classList.remove('hidden');
   if (!sc._wired) {
     sc._wired = true;
@@ -2252,16 +3112,24 @@ function frame(now) {
     if (p.kind === 'sway') p.o.rotation.z = Math.sin(T * 1.3 + p.ph) * 0.04;
     else if (p.kind === 'bob') p.o.position.y = p.y + Math.sin(T * 0.7 + p.ph) * 0.25;
     else if (p.kind === 'spin') p.o.rotation.y += dt * 0.8;
+    else if (p.kind === 'lava') p.o.material.emissiveIntensity = 1.4 + 0.5 * Math.sin(T * 1.5 + p.ph);
   }
   for (const g of world.gems) { g.rotation.y += dt * 1.5; g.position.y += Math.sin(T * 2) * 0.002; }
   if (world.points) {
     const a = world.points.geometry.attributes.position, th = world.theme;
     for (let i = 0; i < a.count; i++) {
-      let y = a.getY(i) - th.fall * dt * (0.6 + (i % 5) * 0.15);
-      if (th.fall < 0 && y > 13) y = -4; if (th.fall > 0 && y < -4) y = 13;
-      a.setY(i, y); a.setX(i, a.getX(i) + Math.sin(T * 0.6 + i) * dt * 0.12);
+      let y = a.getY(i) - th.fall * dt * (0.6 + (i % 5) * 0.15), x = a.getX(i) + (th.drift || 0) * dt + Math.sin(T * 0.6 + i) * dt * (th.firefly ? 0.5 : 0.12);
+      if (th.firefly) y += Math.cos(T * 0.8 + i * 1.7) * dt * 0.3;
+      if (y > 13) y = -4; if (y < -4) y = 13; if (x > 11) x = -11; if (x < -11) x = 11;
+      a.setY(i, y); a.setX(i, x);
     }
     a.needsUpdate = true;
+    if (th.firefly) world.points.material.opacity = 0.6 + 0.35 * Math.sin(T * 2.3);
+  }
+  for (const r of world.ribbons || []) {
+    const pa = r.geometry.attributes.position, b = r.userData.base;
+    for (let i = 0; i < pa.count; i++) pa.setY(i, b[i * 3 + 1] + Math.sin(b[i * 3] * 0.35 + T * 0.6 + r.userData.ph) * 0.9);
+    pa.needsUpdate = true; r.material.opacity = 0.3 + 0.18 * Math.sin(T * 0.5 + r.userData.ph);
   }
   bgU.glow.value = Math.max(0, bgU.glow.value - dt * 0.8);
   // blocks idle: preview glow, blaze flames, ice shimmer
@@ -2269,9 +3137,15 @@ function frame(now) {
     if (v.glow && v.k === 'n') { v.body.material.emissive.set('#ffffff'); v.body.material.emissiveIntensity = 0.25 + 0.2 * Math.sin(T * 10); }
     if (v.blaze && Math.random() < dt * 6) spawnSparks(v.g.position.clone().add(new THREE.Vector3(rand(-0.3, 0.3), 0.35, 0.3)), Math.random() < 0.5 ? '#ff7a1a' : '#ffd23f', 1, 0.4, 0.3, 0.6, -1.6);
     if (v.ice) v.ice.children[0].material.emissiveIntensity = 0.25 + 0.1 * Math.sin(T * 2 + v.id);
+    if (v.k === 'w') v.body.material.emissive.setHSL((T * 0.25 + v.id * 0.13) % 1, 1, 0.5);
+    if (v.bombParts) {
+      v.bombParts.spark.scale.setScalar(0.26 + Math.random() * 0.14);
+      if (v.bomb <= 1 && !v.glow && v.k === 'n') { v.body.material.emissive.set('#ff1a3a'); v.body.material.emissiveIntensity = 0.35 + 0.35 * Math.sin(T * 12); }
+      if (Math.random() < dt * 5) spawnSparks(v.g.position.clone().add(new THREE.Vector3(0.31, 0.7, 0.2)), '#ffb030', 1, 0.6, 0.18, 0.35, 1.5);
+    }
   }
   for (const g of bands.values()) g.userData.mat.opacity = 0.55 + 0.45 * Math.sin(T * 5);
-  if (ghost.visible) { const s = (preview && preview.tgt && preview.tgt.kind === 'stack' ? 1.08 : 1) + Math.sin(T * 8) * 0.03; ghost.scale.setScalar(s); ghostBody.material.opacity = 0.45 + 0.15 * Math.sin(T * 8); }
+  if (ghost.visible) { const s = (preview && preview.tgt && preview.tgt.kind === 'stack' ? 1.08 : 1) + Math.sin(T * 8) * 0.03; ghost.scale.setScalar(s); ghostBody.material.opacity = 0.45 + 0.15 * Math.sin(T * 8); ghost2Body.material.opacity = ghostBody.material.opacity; }
   // tray dice idle
   trayViews.forEach((v, i) => {
     if (!v) return;
