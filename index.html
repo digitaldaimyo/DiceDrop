@@ -758,6 +758,8 @@ const NAMES = {
   reef: { a: ['Coral', 'Sandy', 'Bubbly', 'Tidal', 'Pearl', 'Kelp', 'Sunlit', 'Shell'], n: ['Reef', 'Lagoon', 'Shoal', 'Cove', 'Garden', 'Bay', 'Shallows', 'Pool'] },
   neon: { a: ['Neon', 'Electric', 'Laser', 'Pixel', 'Glowing', 'Midnight', 'Synth', 'Voltage'], n: ['Circuit', 'Grid', 'Arcade', 'Relay', 'Gearbox', 'Signal', 'Switch', 'Core'] },
   dunes: { a: ['Golden', 'Shifting', 'Sunbaked', 'Windswept', 'Silent', 'Amber', 'Rolling', 'Hidden'], n: ['Dunes', 'Mesa', 'Oasis', 'Sands', 'Canyon', 'Mirage', 'Trail', 'Butte'] },
+  autumn: { a: ['Amber', 'Rustling', 'Harvest', 'Golden', 'Crisp', 'Maple', 'Copper', 'Cozy'], n: ['Orchard', 'Field', 'Lane', 'Hollow', 'Grove', 'Barn', 'Meadow', 'Path'] },
+  void: { a: ['Starlit', 'Cosmic', 'Silent', 'Drifting', 'Nebula', 'Distant', 'Hollow', 'Endless'], n: ['Rift', 'Orbit', 'Expanse', 'Void', 'Comet', 'Nova', 'Horizon', 'Drift'] },
   aurora: { a: ['Aurora', 'Glimmer', 'Polar', 'Shimmer', 'Midnight', 'Northern', 'Starry', 'Silent'], n: ['Veil', 'Sky', 'Ribbon', 'Lights', 'Drift', 'Crown', 'Glow', 'Arc'] },
   dusk: { a: ['Twilight', 'Firefly', 'Dusky', 'Amber', 'Hushed', 'Starlit', 'Velvet', 'Mellow'], n: ['Hollow', 'Glade', 'Lane', 'Meadow', 'Garden', 'Brook', 'Arbor', 'Grove'] },
   glacier: { a: ['Frosty', 'Glassy', 'Polar', 'Icy', 'Snowy', 'Frozen', 'Shiver', 'Crisp'], n: ['Steps', 'Ledge', 'Drift', 'Pass', 'Ridge', 'Floe', 'Crossing', 'Slope'] },
@@ -3309,6 +3311,2514 @@ const GENERATED = [
   ],
   "gravity": false,
   "bot": 34
+ },
+ {
+  "key": "g12-1-1201000",
+  "chapter": 12,
+  "slot": 1,
+  "gen": true,
+  "tier": "breather",
+  "name": "Quartz Hollow",
+  "rolls": 5,
+  "star3": 2200,
+  "tip": "Clear blocks touching a crystal to break it free.",
+  "goals": [
+   {
+    "t": "crystal"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . C . 8",
+   ". . . 1 . 11",
+   ". . . 11 . 7",
+   ". . 12 5 14 11",
+   ". 6 1 C 10 13"
+  ],
+  "bot": 100
+ },
+ {
+  "key": "g12-2-1202000",
+  "chapter": 12,
+  "slot": 2,
+  "gen": true,
+  "tier": "normal",
+  "name": "Glittering Spire",
+  "rolls": 4,
+  "star3": 3300,
+  "tip": "Stack prime-locked blocks to a prime number to unlock them.",
+  "goals": [
+   {
+    "t": "prime"
+   },
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "any",
+    "n": 28
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . 10 . . .",
+   ". . 6 . . C",
+   ". . C . . 4",
+   "p8 . C 3 . 4",
+   "13 . 8 6 . 6"
+  ],
+  "bot": 67
+ },
+ {
+  "key": "g12-3-1203000",
+  "chapter": 12,
+  "slot": 3,
+  "gen": true,
+  "tier": "normal",
+  "name": "Faceted Hollow",
+  "rolls": 4,
+  "star3": 4700,
+  "tip": "Clear blocks touching a crystal to break it free.",
+  "goals": [
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "anchor"
+   },
+   {
+    "t": "any",
+    "n": 28
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". A . . . .",
+   ". 13 . A . .",
+   "14 11 . 10 . 5",
+   "10 1 . 1 8 11",
+   "C 9 . 2 11 7"
+  ],
+  "bot": 75
+ },
+ {
+  "key": "g12-4-1209065",
+  "chapter": 12,
+  "slot": 4,
+  "gen": true,
+  "tier": "hard",
+  "name": "Amethyst Vein",
+  "rolls": 4,
+  "star3": 5200,
+  "tip": "Fill a row so it glows gold, then match inside it.",
+  "goals": [
+   {
+    "t": "lines",
+    "n": 6
+   },
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "prime"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   "C . . p4 . .",
+   "5 . . 6 . 5",
+   "C 3 . 10 . 6",
+   "12 2 . 1 . 11",
+   "13 9 5 p1 . C"
+  ],
+  "bot": 52
+ },
+ {
+  "key": "g12-5-1205000",
+  "chapter": 12,
+  "slot": 5,
+  "gen": true,
+  "tier": "breather",
+  "name": "Gleaming Vein",
+  "rolls": 5,
+  "star3": 2200,
+  "tip": "Stack prime-locked blocks to a prime number to unlock them.",
+  "goals": [
+   {
+    "t": "prime"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . 9 . .",
+   "11 . . 1 . .",
+   "3 . . 9 . 6",
+   "2 . . 11 . 10",
+   "10 13 . p12 3 11"
+  ],
+  "bot": 100
+ },
+ {
+  "key": "g12-6-1206000",
+  "chapter": 12,
+  "slot": 6,
+  "gen": true,
+  "tier": "normal",
+  "name": "Radiant Cluster",
+  "rolls": 4,
+  "star3": 4200,
+  "tip": "Clear the blocks under each anchor to sink it.",
+  "goals": [
+   {
+    "t": "anchor"
+   },
+   {
+    "t": "prime"
+   },
+   {
+    "t": "any",
+    "n": 19
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . .",
+   "A . p9 8 . .",
+   "8 . 5 p9 8 .",
+   "13 . 2 12 5 12",
+   "11 . 1 12 8 12"
+  ],
+  "bot": 84
+ },
+ {
+  "key": "g12-7-1207000",
+  "chapter": 12,
+  "slot": 7,
+  "gen": true,
+  "tier": "normal",
+  "name": "Faceted Cavern",
+  "rolls": 4,
+  "star3": 4400,
+  "tip": "Clear blocks touching a crystal to break it free.",
+  "goals": [
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "tile",
+    "n": 6
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   "9 . . . . .",
+   "13 . . x. 9 .",
+   "C . 3 . 1 .",
+   "6 . 2 12 2 .",
+   "1 x. C C C 11"
+  ],
+  "bot": 57
+ },
+ {
+  "key": "g12-8-1208000",
+  "chapter": 12,
+  "slot": 8,
+  "gen": true,
+  "tier": "normal",
+  "name": "Radiant Spire",
+  "rolls": 4,
+  "star3": 4500,
+  "tip": "Clear the blocks under each anchor to sink it.",
+  "goals": [
+   {
+    "t": "anchor"
+   },
+   {
+    "t": "any",
+    "n": 32
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". 3 . 14 . .",
+   ". 13 A 11 . .",
+   ". 4 4 2 11 .",
+   ". 5 12 12 10 A",
+   ". 6 2 10 7 10"
+  ],
+  "bot": 57
+ },
+ {
+  "key": "g12-9-1209000",
+  "chapter": 12,
+  "slot": 9,
+  "gen": true,
+  "tier": "hard",
+  "name": "Prism Geode",
+  "rolls": 4,
+  "star3": 4100,
+  "tip": "Clear the blocks under each anchor to sink it.",
+  "goals": [
+   {
+    "t": "anchor"
+   },
+   {
+    "t": "prime"
+   },
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "any",
+    "n": 31
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . .",
+   ". A C . . .",
+   ". 6 10 . . p14",
+   "11 4 2 . 11 9",
+   "C p4 C . C 3"
+  ],
+  "bot": 32
+ },
+ {
+  "key": "g13-1-1301000",
+  "chapter": 13,
+  "slot": 1,
+  "gen": true,
+  "tier": "breather",
+  "name": "Amber Lane",
+  "rolls": 5,
+  "star3": 2200,
+  "tip": null,
+  "goals": [
+   {
+    "t": "any",
+    "n": 8
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . 7 .",
+   ". . . . 3 .",
+   "1 8 . . 9 .",
+   "14 2 . 1 9 .",
+   "14 13 . 5 6 4"
+  ],
+  "bot": 100
+ },
+ {
+  "key": "g13-2-1302000",
+  "chapter": 13,
+  "slot": 2,
+  "gen": true,
+  "tier": "normal",
+  "name": "Copper Path",
+  "rolls": 4,
+  "star3": 4700,
+  "tip": "Stack a block to exactly 20 to burst it.",
+  "goals": [
+   {
+    "t": "burst",
+    "n": 6
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . .",
+   ". 4 . . 14 .",
+   ". 2 . . 2 5",
+   ". 1 17 . 8 13",
+   ". 9 2 15 8 10"
+  ],
+  "bot": 69
+ },
+ {
+  "key": "g13-3-1303000",
+  "chapter": 13,
+  "slot": 3,
+  "gen": true,
+  "tier": "normal",
+  "name": "Copper Hollow",
+  "rolls": 5,
+  "star3": 3800,
+  "tip": null,
+  "goals": [
+   {
+    "t": "break",
+    "v": 5,
+    "n": 4
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   "# . . . . #",
+   "# # 2 . # #",
+   ". . 2 . . .",
+   "5 4 13 1 7 .",
+   "4 11 12 6 1 ."
+  ],
+  "bot": 71
+ },
+ {
+  "key": "g13-4-1307039",
+  "chapter": 13,
+  "slot": 4,
+  "gen": true,
+  "tier": "hard",
+  "name": "Copper Orchard",
+  "rolls": 4,
+  "star3": 5700,
+  "tip": "Fill a row so it glows gold, then match inside it.",
+  "goals": [
+   {
+    "t": "lines",
+    "n": 7
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". 13 . . 11 .",
+   ". 5 . . 10 .",
+   ". 13 . . 10 12",
+   "11 7 . 1 14 2",
+   "5 14 . 1 7 6"
+  ],
+  "bot": 41
+ },
+ {
+  "key": "g13-5-1305000",
+  "chapter": 13,
+  "slot": 5,
+  "gen": true,
+  "tier": "breather",
+  "name": "Harvest Grove",
+  "rolls": 5,
+  "star3": 2400,
+  "tip": null,
+  "goals": [
+   {
+    "t": "any",
+    "n": 9
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   "12 . . . . .",
+   "11 6 . . . .",
+   "13 13 . . . 14",
+   "11 4 9 . 11 7",
+   "3 4 8 . 13 10"
+  ],
+  "bot": 100
+ },
+ {
+  "key": "g13-6-1307013",
+  "chapter": 13,
+  "slot": 6,
+  "gen": true,
+  "tier": "normal",
+  "name": "Rustling Grove",
+  "rolls": 4,
+  "star3": 5600,
+  "tip": "Fill a row so it glows gold, then match inside it.",
+  "goals": [
+   {
+    "t": "lines",
+    "n": 6
+   },
+   {
+    "t": "burst",
+    "n": 2
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . 1",
+   "14 . 16 . 4 4",
+   "9 . 4 . 5 10",
+   "8 14 10 . 12 2"
+  ],
+  "bot": 50
+ },
+ {
+  "key": "g13-7-1307000",
+  "chapter": 13,
+  "slot": 7,
+  "gen": true,
+  "tier": "normal",
+  "name": "Golden Orchard",
+  "rolls": 4,
+  "star3": 3300,
+  "tip": null,
+  "goals": [
+   {
+    "t": "break",
+    "v": 3,
+    "n": 4
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . 6 .",
+   ". # . 5 # .",
+   ". # . 7 # 8",
+   "13 . 3 14 14 8",
+   "1 . 10 7 5 3"
+  ],
+  "bot": 85
+ },
+ {
+  "key": "g13-8-1308000",
+  "chapter": 13,
+  "slot": 8,
+  "gen": true,
+  "tier": "normal",
+  "name": "Copper Field",
+  "rolls": 4,
+  "star3": 4700,
+  "tip": "Gold-framed cells double the points of blocks cleared on them.",
+  "goals": [
+   {
+    "t": "any",
+    "n": 32
+   },
+   {
+    "t": "tile",
+    "n": 3
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   "5 . . . . .",
+   "9 11 . . . 1",
+   "11 6 x9 . . 10",
+   "6 13 5 x. . 10",
+   "5 14 x8 13 . 2"
+  ],
+  "bot": 69
+ },
+ {
+  "key": "g13-9-1309000",
+  "chapter": 13,
+  "slot": 9,
+  "gen": true,
+  "tier": "hard",
+  "name": "Harvest Barn",
+  "rolls": 4,
+  "star3": 4500,
+  "tip": "Fill a row so it glows gold, then match inside it.",
+  "goals": [
+   {
+    "t": "break",
+    "v": 3,
+    "n": 7
+   },
+   {
+    "t": "lines",
+    "n": 2
+   },
+   {
+    "t": "burst",
+    "n": 2
+   }
+  ],
+  "rows": [
+   "# . . . . #",
+   "# . . . . #",
+   "2 14 . . . .",
+   "8 10 . . . .",
+   "12 5 . . . .",
+   "10 13 10 . 5 18",
+   "3 3 11 . 3 14"
+  ],
+  "bot": 53
+ },
+ {
+  "key": "g14-1-1401000",
+  "chapter": 14,
+  "slot": 1,
+  "gen": true,
+  "tier": "breather",
+  "name": "Coral Shallows",
+  "rolls": 5,
+  "star3": 1500,
+  "tip": "EVEN blocks only take even dice, ODD blocks only odd dice.",
+  "goals": [
+   {
+    "t": "parity"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . .",
+   ". . . 12 . .",
+   ". . 4 13 . 12",
+   "12 . 5 8 . 9",
+   "e12 . 4 10 10 1"
+  ],
+  "bot": 100
+ },
+ {
+  "key": "g14-2-1402000",
+  "chapter": 14,
+  "slot": 2,
+  "gen": true,
+  "tier": "normal",
+  "name": "Sunlit Pool",
+  "rolls": 4,
+  "star3": 4500,
+  "tip": "Ice takes two matches: the first thaws it.",
+  "goals": [
+   {
+    "t": "ice"
+   },
+   {
+    "t": "parity"
+   },
+   {
+    "t": "any",
+    "n": 40
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . 3",
+   "9 . . . . 3",
+   "14 3 . e8 . 10",
+   "6 2 . 11 . i9",
+   "o14 3 7 10 . 9"
+  ],
+  "bot": 83
+ },
+ {
+  "key": "g14-3-1403000",
+  "chapter": 14,
+  "slot": 3,
+  "gen": true,
+  "tier": "normal",
+  "name": "Shell Bay",
+  "rolls": 4,
+  "star3": 4700,
+  "tip": "Gold-framed cells double the points of blocks cleared on them.",
+  "goals": [
+   {
+    "t": "tile",
+    "n": 8
+   },
+   {
+    "t": "spawner"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . 2 . .",
+   ". . 6 6 x. .",
+   ". 11 11 13 . 1",
+   ". g2 3 1 . 10",
+   ". 11 x14 6 . x5"
+  ],
+  "bot": 73
+ },
+ {
+  "key": "g14-4-1404000",
+  "chapter": 14,
+  "slot": 4,
+  "gen": true,
+  "tier": "hard",
+  "name": "Tidal Pool",
+  "rolls": 4,
+  "star3": 5100,
+  "tip": "Fill a row so it glows gold, then match inside it.",
+  "goals": [
+   {
+    "t": "lines",
+    "n": 7
+   },
+   {
+    "t": "spawner"
+   },
+   {
+    "t": "parity"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . 6 .",
+   ". . 9 o13 6 1",
+   "e4 . 1 3 2 9",
+   "o12 . g7 5 o12 6"
+  ],
+  "bot": 36
+ },
+ {
+  "key": "g14-5-1405000",
+  "chapter": 14,
+  "slot": 5,
+  "gen": true,
+  "tier": "breather",
+  "name": "Tidal Lagoon",
+  "rolls": 5,
+  "star3": 1800,
+  "tip": "Ice takes two matches: the first thaws it.",
+  "goals": [
+   {
+    "t": "ice"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . 3",
+   ". . . . 13 2",
+   ". . . . 4 2",
+   ". i1 . . 13 5",
+   "11 6 3 . 6 6"
+  ],
+  "bot": 100
+ },
+ {
+  "key": "g14-6-1406000",
+  "chapter": 14,
+  "slot": 6,
+  "gen": true,
+  "tier": "normal",
+  "name": "Shell Cove",
+  "rolls": 4,
+  "star3": 4700,
+  "tip": "Gold-framed cells double the points of blocks cleared on them.",
+  "goals": [
+   {
+    "t": "tile",
+    "n": 6
+   },
+   {
+    "t": "parity"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . 11 11 .",
+   ". . . 14 x10 .",
+   ". x. . 3 13 .",
+   "11 . 2 3 xo7 .",
+   "9 . 6 14 o8 3"
+  ],
+  "bot": 61
+ },
+ {
+  "key": "g14-7-1407000",
+  "chapter": 14,
+  "slot": 7,
+  "gen": true,
+  "tier": "normal",
+  "name": "Bubbly Bay",
+  "rolls": 4,
+  "star3": 4900,
+  "tip": "Ice takes two matches: the first thaws it.",
+  "goals": [
+   {
+    "t": "ice"
+   },
+   {
+    "t": "spawner"
+   },
+   {
+    "t": "any",
+    "n": 37
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . i9 12",
+   "g9 . . . 9 14",
+   "12 . i9 . i11 12",
+   "6 . 12 4 2 12"
+  ],
+  "bot": 75
+ },
+ {
+  "key": "g14-8-1409013",
+  "chapter": 14,
+  "slot": 8,
+  "gen": true,
+  "tier": "normal",
+  "name": "Bubbly Shallows",
+  "rolls": 4,
+  "star3": 4200,
+  "tip": "Ice takes two matches: the first thaws it.",
+  "goals": [
+   {
+    "t": "any",
+    "n": 38
+   },
+   {
+    "t": "ice"
+   },
+   {
+    "t": "parity"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". 6 . . . .",
+   ". i3 . . . .",
+   ". 14 . . . 10",
+   "13 o7 13 . . o3",
+   "4 12 11 o7 . 3"
+  ],
+  "bot": 51
+ },
+ {
+  "key": "g14-9-1409000",
+  "chapter": 14,
+  "slot": 9,
+  "gen": true,
+  "tier": "hard",
+  "name": "Sandy Shallows",
+  "rolls": 4,
+  "star3": 4900,
+  "tip": "Spawners add a block every roll. Match them to stop them.",
+  "goals": [
+   {
+    "t": "spawner"
+   },
+   {
+    "t": "parity"
+   },
+   {
+    "t": "ice"
+   },
+   {
+    "t": "any",
+    "n": 43
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . 11 . e9",
+   ". . . 6 . 1",
+   "5 . . 14 . e6",
+   "i10 . 14 o5 3 12",
+   "g3 . 5 12 12 o5"
+  ],
+  "bot": 44
+ },
+ {
+  "key": "g15-1-1501000",
+  "chapter": 15,
+  "slot": 1,
+  "gen": true,
+  "tier": "breather",
+  "name": "Windswept Canyon",
+  "rolls": 5,
+  "star3": 1900,
+  "tip": "Match bombs before their timers run out.",
+  "goals": [
+   {
+    "t": "bomb"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . 2 .",
+   ". . . 7 1 .",
+   ". . 5 14 6 .",
+   ". . 8 b12:4 8 .",
+   "2 . 2 5 1 6"
+  ],
+  "bot": 100
+ },
+ {
+  "key": "g15-2-1502000",
+  "chapter": 15,
+  "slot": 2,
+  "gen": true,
+  "tier": "normal",
+  "name": "Hidden Mesa",
+  "rolls": 4,
+  "star3": 3400,
+  "tip": "No gravity: blocks stay exactly where you put them.",
+  "goals": [
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "any",
+    "n": 28
+   }
+  ],
+  "rows": [
+   "2 . . . . .",
+   ". . 10 C . 11",
+   ". . 8 . 1 .",
+   ". . . . . 9",
+   "11 . . 3 1 1",
+   ". . . . . 12",
+   "C . . . . ."
+  ],
+  "gravity": false,
+  "bot": 57
+ },
+ {
+  "key": "g15-3-1503000",
+  "chapter": 15,
+  "slot": 3,
+  "gen": true,
+  "tier": "normal",
+  "name": "Windswept Mesa",
+  "rolls": 4,
+  "star3": 4000,
+  "tip": "Clear blocks touching a crystal to break it free.",
+  "goals": [
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "bomb"
+   },
+   {
+    "t": "any",
+    "n": 28
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . b8:5 . .",
+   ". . . 14 . .",
+   ". 9 . b4:3 14 .",
+   ". 14 . 6 C .",
+   "C 6 5 9 10 ."
+  ],
+  "bot": 78
+ },
+ {
+  "key": "g15-4-1504000",
+  "chapter": 15,
+  "slot": 4,
+  "gen": true,
+  "tier": "hard",
+  "name": "Amber Butte",
+  "rolls": 4,
+  "star3": 5000,
+  "tip": "Match bombs before their timers run out.",
+  "goals": [
+   {
+    "t": "bomb"
+   },
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "lines",
+    "n": 5
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . 2 . . .",
+   ". . b1:3 . 7 .",
+   ". . 7 9 b5:5 .",
+   "3 . b1:5 13 C .",
+   "13 . 3 C C 8"
+  ],
+  "bot": 31
+ },
+ {
+  "key": "g15-5-1505000",
+  "chapter": 15,
+  "slot": 5,
+  "gen": true,
+  "tier": "breather",
+  "name": "Silent Sands",
+  "rolls": 5,
+  "star3": 1300,
+  "tip": "Clear blocks touching a crystal to break it free.",
+  "goals": [
+   {
+    "t": "crystal"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . .",
+   "6 . 9 . . 2",
+   "5 . 6 . . 11",
+   "C . 5 . . 4",
+   "1 1 9 . . 13"
+  ],
+  "bot": 100
+ },
+ {
+  "key": "g15-6-1506000",
+  "chapter": 15,
+  "slot": 6,
+  "gen": true,
+  "tier": "normal",
+  "name": "Amber Trail",
+  "rolls": 4,
+  "star3": 3800,
+  "tip": "No gravity: blocks stay exactly where you put them.",
+  "goals": [
+   {
+    "t": "bomb"
+   },
+   {
+    "t": "any",
+    "n": 29
+   }
+  ],
+  "rows": [
+   ". . . . 9 .",
+   ". . . 9 . .",
+   ". . 11 13 14 .",
+   ". . 3 . 2 9",
+   "7 . . 11 . .",
+   ". . . b2:5 . b12:4",
+   ". . 8 5 . ."
+  ],
+  "gravity": false,
+  "bot": 67
+ },
+ {
+  "key": "g15-7-1507000",
+  "chapter": 15,
+  "slot": 7,
+  "gen": true,
+  "tier": "normal",
+  "name": "Golden Dunes",
+  "rolls": 4,
+  "star3": 4400,
+  "tip": "Match bombs before their timers run out.",
+  "goals": [
+   {
+    "t": "bomb"
+   },
+   {
+    "t": "any",
+    "n": 30
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . 13 11",
+   ". . . . 13 4",
+   ". . 6 . 6 9",
+   "# 7 b12:4 . 9 #",
+   "# 9 12 14 13 #"
+  ],
+  "bot": 83
+ },
+ {
+  "key": "g15-8-1508000",
+  "chapter": 15,
+  "slot": 8,
+  "gen": true,
+  "tier": "normal",
+  "name": "Windswept Oasis",
+  "rolls": 4,
+  "star3": 3800,
+  "tip": "Stones break from a burst next to them or a line bonus through their row.",
+  "goals": [
+   {
+    "t": "stone"
+   },
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "any",
+    "n": 37
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   "S . . . . .",
+   "2 1 . . . .",
+   "5 6 . 11 . 2",
+   "10 4 . C . 7",
+   "5 C . 4 . S"
+  ],
+  "bot": 86
+ },
+ {
+  "key": "g15-9-1510013",
+  "chapter": 15,
+  "slot": 9,
+  "gen": true,
+  "tier": "hard",
+  "name": "Golden Butte",
+  "rolls": 4,
+  "star3": 4300,
+  "tip": "Match bombs before their timers run out.",
+  "goals": [
+   {
+    "t": "bomb"
+   },
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "any",
+    "n": 33
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . 13 . . .",
+   ". . b10:5 . 6 .",
+   ". . 4 C C .",
+   ". . 4 b5:5 8 .",
+   ". . C 13 13 b7:5"
+  ],
+  "bot": 31
+ },
+ {
+  "key": "g16-1-1601000",
+  "chapter": 16,
+  "slot": 1,
+  "gen": true,
+  "tier": "breather",
+  "name": "Crisp Ridge",
+  "rolls": 5,
+  "star3": 3100,
+  "tip": "Ice takes two matches: the first thaws it.",
+  "goals": [
+   {
+    "t": "ice"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   "i6 . . . . .",
+   "1 . . . 13 .",
+   "5 . 5 . 3 14",
+   "8 . 4 . 9 4",
+   "2 . 9 i6 7 4"
+  ],
+  "bot": 100
+ },
+ {
+  "key": "g16-2-1602000",
+  "chapter": 16,
+  "slot": 2,
+  "gen": true,
+  "tier": "normal",
+  "name": "Shiver Ridge",
+  "rolls": 4,
+  "star3": 4400,
+  "tip": "Stones break from a burst next to them or a line bonus through their row.",
+  "goals": [
+   {
+    "t": "stone"
+   },
+   {
+    "t": "ice"
+   },
+   {
+    "t": "any",
+    "n": 37
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . .",
+   ". . 13 i6 . .",
+   "3 . 9 i2 . .",
+   "i8 . 14 14 . 5",
+   "11 16 5 8 . S"
+  ],
+  "bot": 76
+ },
+ {
+  "key": "g16-3-1603000",
+  "chapter": 16,
+  "slot": 3,
+  "gen": true,
+  "tier": "normal",
+  "name": "Frozen Drift",
+  "rolls": 4,
+  "star3": 4700,
+  "tip": "Clear the blocks under each anchor to sink it.",
+  "goals": [
+   {
+    "t": "anchor"
+   },
+   {
+    "t": "ice"
+   },
+   {
+    "t": "any",
+    "n": 40
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . A .",
+   ". . . . 9 3",
+   "6 1 . i1 1 2",
+   "4 12 . 8 2 13",
+   "9 7 . 14 4 i8"
+  ],
+  "bot": 82
+ },
+ {
+  "key": "g16-4-1619195",
+  "chapter": 16,
+  "slot": 4,
+  "gen": true,
+  "tier": "hard",
+  "name": "Polar Steps",
+  "rolls": 4,
+  "star3": 5800,
+  "tip": "Fill a row so it glows gold, then match inside it.",
+  "goals": [
+   {
+    "t": "lines",
+    "n": 7
+   },
+   {
+    "t": "stone"
+   },
+   {
+    "t": "ice"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . 8 .",
+   ". . 6 . 3 .",
+   ". 15 i11 . 13 10",
+   "17 10 i4 . 4 11",
+   "S S 6 . i12 10"
+  ],
+  "bot": 48
+ },
+ {
+  "key": "g16-5-1605000",
+  "chapter": 16,
+  "slot": 5,
+  "gen": true,
+  "tier": "breather",
+  "name": "Polar Drift",
+  "rolls": 5,
+  "star3": 2100,
+  "tip": "Stones break from a burst next to them or a line bonus through their row.",
+  "goals": [
+   {
+    "t": "stone"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . 8 . .",
+   "16 . . 4 . .",
+   "12 11 . 1 . .",
+   "12 10 . S 14 6",
+   "2 5 . 11 11 12"
+  ],
+  "bot": 100
+ },
+ {
+  "key": "g16-6-1606000",
+  "chapter": 16,
+  "slot": 6,
+  "gen": true,
+  "tier": "normal",
+  "name": "Frozen Crossing",
+  "rolls": 4,
+  "star3": 4200,
+  "tip": "Clear the blocks under each anchor to sink it.",
+  "goals": [
+   {
+    "t": "any",
+    "n": 29
+   },
+   {
+    "t": "anchor"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . 8 .",
+   ". . . 9 2 A",
+   ". . . 12 8 13",
+   ". 10 . 6 14 8",
+   "12 6 . 9 9 10"
+  ],
+  "bot": 73
+ },
+ {
+  "key": "g16-7-1607000",
+  "chapter": 16,
+  "slot": 7,
+  "gen": true,
+  "tier": "normal",
+  "name": "Icy Ridge",
+  "rolls": 4,
+  "star3": 5000,
+  "tip": "Fill a row so it glows gold, then match inside it.",
+  "goals": [
+   {
+    "t": "lines",
+    "n": 6
+   },
+   {
+    "t": "ice"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . .",
+   "i3 . . . . i10",
+   "7 . . . 1 4",
+   "7 . 9 . 1 5",
+   "i10 . 14 10 13 5"
+  ],
+  "bot": 78
+ },
+ {
+  "key": "g16-8-1608000",
+  "chapter": 16,
+  "slot": 8,
+  "gen": true,
+  "tier": "normal",
+  "name": "Frozen Pass",
+  "rolls": 4,
+  "star3": 5300,
+  "tip": "Clear the blocks under each anchor to sink it.",
+  "goals": [
+   {
+    "t": "anchor"
+   },
+   {
+    "t": "stone"
+   },
+   {
+    "t": "any",
+    "n": 40
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   "A . . 11 . .",
+   "7 . 16 12 . .",
+   "4 . 1 5 17 .",
+   "13 . 5 7 14 .",
+   "4 . 8 S 7 S"
+  ],
+  "bot": 51
+ },
+ {
+  "key": "g16-9-1609000",
+  "chapter": 16,
+  "slot": 9,
+  "gen": true,
+  "tier": "hard",
+  "name": "Polar Slope",
+  "rolls": 4,
+  "star3": 5300,
+  "tip": "Clear the blocks under each anchor to sink it.",
+  "goals": [
+   {
+    "t": "anchor"
+   },
+   {
+    "t": "stone"
+   },
+   {
+    "t": "ice"
+   },
+   {
+    "t": "any",
+    "n": 43
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . 14 . .",
+   ". . . i10 . .",
+   "18 2 S i9 . A",
+   "12 S 8 10 . i8",
+   "i9 12 2 4 . 14"
+  ],
+  "bot": 23
+ },
+ {
+  "key": "g17-1-1701000",
+  "chapter": 17,
+  "slot": 1,
+  "gen": true,
+  "tier": "breather",
+  "name": "Glittering Spire",
+  "rolls": 5,
+  "star3": 1300,
+  "tip": "Clear blocks touching a crystal to break it free.",
+  "goals": [
+   {
+    "t": "crystal"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". 11 . . . .",
+   ". 4 . . 11 .",
+   "2 8 13 . 12 .",
+   "7 3 1 . 9 .",
+   "3 C 13 . 7 ."
+  ],
+  "bot": 100
+ },
+ {
+  "key": "g17-2-1702000",
+  "chapter": 17,
+  "slot": 2,
+  "gen": true,
+  "tier": "normal",
+  "name": "Amethyst Hollow",
+  "rolls": 4,
+  "star3": 4000,
+  "tip": "Gold-framed cells double the points of blocks cleared on them.",
+  "goals": [
+   {
+    "t": "tile",
+    "n": 5
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . 14 . . .",
+   ". 4 11 x. x. .",
+   ". 2 3 x. . .",
+   "11 2 11 13 x11 .",
+   "9 4 10 5 3 ."
+  ],
+  "bot": 70
+ },
+ {
+  "key": "g17-3-1703000",
+  "chapter": 17,
+  "slot": 3,
+  "gen": true,
+  "tier": "normal",
+  "name": "Gleaming Hollow",
+  "rolls": 4,
+  "star3": 4900,
+  "tip": "Gold-framed cells double the points of blocks cleared on them.",
+  "goals": [
+   {
+    "t": "tile",
+    "n": 6
+   },
+   {
+    "t": "crystal"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . 14 . .",
+   ". . . 13 6 .",
+   ". x. 12 4 6 .",
+   "C 9 7 C 1 .",
+   "8 x2 9 C 13 ."
+  ],
+  "bot": 73
+ },
+ {
+  "key": "g17-4-1706026",
+  "chapter": 17,
+  "slot": 4,
+  "gen": true,
+  "tier": "hard",
+  "name": "Prism Grotto",
+  "rolls": 4,
+  "star3": 5200,
+  "tip": "Fill a row so it glows gold, then match inside it.",
+  "goals": [
+   {
+    "t": "lines",
+    "n": 6
+   },
+   {
+    "t": "crystal"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . 10",
+   ". . . . 4 1",
+   ". 9 . 13 8 1",
+   ". 11 . 8 C 11",
+   ". 8 C 8 C 3"
+  ],
+  "bot": 23
+ },
+ {
+  "key": "g17-5-1705000",
+  "chapter": 17,
+  "slot": 5,
+  "gen": true,
+  "tier": "breather",
+  "name": "Faceted Geode",
+  "rolls": 5,
+  "star3": 2100,
+  "tip": null,
+  "goals": [
+   {
+    "t": "any",
+    "n": 10
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . 10 6",
+   ". . . . 6 14",
+   ". . 11 x. 13 7",
+   "2 . 13 . 3 6",
+   "2 . 13 5 8 x3"
+  ],
+  "bot": 100
+ },
+ {
+  "key": "g17-6-1707013",
+  "chapter": 17,
+  "slot": 6,
+  "gen": true,
+  "tier": "normal",
+  "name": "Faceted Cavern",
+  "rolls": 4,
+  "star3": 3800,
+  "tip": "Clear blocks touching a crystal to break it free.",
+  "goals": [
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "bomb"
+   },
+   {
+    "t": "any",
+    "n": 31
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . 10",
+   "9 . . . 8 11",
+   "14 . . . 4 5",
+   "1 b7:3 . . C 5",
+   "C 2 14 . 14 4"
+  ],
+  "bot": 77
+ },
+ {
+  "key": "g17-7-1707000",
+  "chapter": 17,
+  "slot": 7,
+  "gen": true,
+  "tier": "normal",
+  "name": "Glittering Vein",
+  "rolls": 4,
+  "star3": 3500,
+  "tip": "Clear blocks touching a crystal to break it free.",
+  "goals": [
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "spawner"
+   },
+   {
+    "t": "any",
+    "n": 28
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . C . .",
+   ". . . C 7 .",
+   ". . 8 3 12 .",
+   ". . 5 C 7 .",
+   "g8 . 9 8 5 7"
+  ],
+  "bot": 83
+ },
+ {
+  "key": "g17-8-1709013",
+  "chapter": 17,
+  "slot": 8,
+  "gen": true,
+  "tier": "normal",
+  "name": "Faceted Hollow",
+  "rolls": 4,
+  "star3": 4500,
+  "tip": "Gold-framed cells double the points of blocks cleared on them.",
+  "goals": [
+   {
+    "t": "tile",
+    "n": 5
+   },
+   {
+    "t": "prime"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". 13 . . . .",
+   ". 10 . x. 14 .",
+   ". p8 6 . 2 x.",
+   ". 12 x4 8 3 .",
+   "10 4 6 12 p10 ."
+  ],
+  "bot": 48
+ },
+ {
+  "key": "g17-9-1710013",
+  "chapter": 17,
+  "slot": 9,
+  "gen": true,
+  "tier": "hard",
+  "name": "Prism Spire",
+  "rolls": 4,
+  "star3": 4800,
+  "tip": "Gold-framed cells double the points of blocks cleared on them.",
+  "goals": [
+   {
+    "t": "any",
+    "n": 34
+   },
+   {
+    "t": "tile",
+    "n": 5
+   },
+   {
+    "t": "crystal"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . .",
+   "7 . . . . .",
+   "4 x. C 3 . 9",
+   "C . x6 4 4 12",
+   "x10 . 8 xC 14 8"
+  ],
+  "bot": 25
+ },
+ {
+  "key": "g18-1-1801000",
+  "chapter": 18,
+  "slot": 1,
+  "gen": true,
+  "tier": "breather",
+  "name": "Sunbaked Mesa",
+  "rolls": 5,
+  "star3": 2000,
+  "tip": "EVEN blocks only take even dice, ODD blocks only odd dice.",
+  "goals": [
+   {
+    "t": "parity"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   "5 . . 14 . .",
+   "8 . . 2 . .",
+   "10 . . 2 . .",
+   "8 5 13 1 9 .",
+   "3 3 o12 9 e3 ."
+  ],
+  "bot": 100
+ },
+ {
+  "key": "g18-2-1802000",
+  "chapter": 18,
+  "slot": 2,
+  "gen": true,
+  "tier": "normal",
+  "name": "Windswept Oasis",
+  "rolls": 4,
+  "star3": 3500,
+  "tip": "No gravity: blocks stay exactly where you put them.",
+  "goals": [
+   {
+    "t": "parity"
+   },
+   {
+    "t": "any",
+    "n": 28
+   }
+  ],
+  "rows": [
+   ". . 1 . . .",
+   ". . 6 . . 11",
+   ". . . . . .",
+   "10 . e9 11 . .",
+   "10 2 6 . . .",
+   "9 . 7 . . 4",
+   ". e3 11 3 . ."
+  ],
+  "gravity": false,
+  "bot": 79
+ },
+ {
+  "key": "g18-3-1803000",
+  "chapter": 18,
+  "slot": 3,
+  "gen": true,
+  "tier": "normal",
+  "name": "Amber Sands",
+  "rolls": 4,
+  "star3": 3300,
+  "tip": "Stack prime-locked blocks to a prime number to unlock them.",
+  "goals": [
+   {
+    "t": "prime"
+   },
+   {
+    "t": "parity"
+   },
+   {
+    "t": "any",
+    "n": 28
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . 8 p4 .",
+   ". . . 7 6 .",
+   ". 5 . 6 11 .",
+   ". o5 9 6 10 .",
+   "e8 3 9 2 3 ."
+  ],
+  "bot": 76
+ },
+ {
+  "key": "g18-4-1806026",
+  "chapter": 18,
+  "slot": 4,
+  "gen": true,
+  "tier": "hard",
+  "name": "Silent Trail",
+  "rolls": 4,
+  "star3": 5200,
+  "tip": "No gravity: blocks stay exactly where you put them.",
+  "goals": [
+   {
+    "t": "prime"
+   },
+   {
+    "t": "lines",
+    "n": 4
+   }
+  ],
+  "rows": [
+   "8 . 13 . . p6",
+   ". . 6 . . 8",
+   "1 3 . . . .",
+   "7 6 . . 4 10",
+   ". p14 . . 13 .",
+   ". . 5 . . .",
+   "11 8 . . . ."
+  ],
+  "gravity": false,
+  "bot": 36
+ },
+ {
+  "key": "g18-5-1805000",
+  "chapter": 18,
+  "slot": 5,
+  "gen": true,
+  "tier": "breather",
+  "name": "Amber Mirage",
+  "rolls": 5,
+  "star3": 2500,
+  "tip": "Stack prime-locked blocks to a prime number to unlock them.",
+  "goals": [
+   {
+    "t": "prime"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . 9 . .",
+   ". . 7 5 . .",
+   ". . 8 7 . 5",
+   "11 . 9 12 . 10",
+   "5 7 8 p14 . 8"
+  ],
+  "bot": 100
+ },
+ {
+  "key": "g18-6-1806000",
+  "chapter": 18,
+  "slot": 6,
+  "gen": true,
+  "tier": "normal",
+  "name": "Silent Oasis",
+  "rolls": 4,
+  "star3": 2600,
+  "tip": "No gravity: blocks stay exactly where you put them.",
+  "goals": [
+   {
+    "t": "parity"
+   },
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "any",
+    "n": 10
+   }
+  ],
+  "rows": [
+   "14 . . . e11 5",
+   ". 6 . . 7 o6",
+   ". . . 14 2 .",
+   "2 . . 2 . .",
+   ". . . . . .",
+   ". . . . 3 C",
+   "1 3 . 8 . ."
+  ],
+  "gravity": false,
+  "bot": 80
+ },
+ {
+  "key": "g18-7-1807000",
+  "chapter": 18,
+  "slot": 7,
+  "gen": true,
+  "tier": "normal",
+  "name": "Rolling Canyon",
+  "rolls": 4,
+  "star3": 3500,
+  "tip": "Stack prime-locked blocks to a prime number to unlock them.",
+  "goals": [
+   {
+    "t": "any",
+    "n": 28
+   },
+   {
+    "t": "prime"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . p1 . .",
+   ". 1 10 p6 . .",
+   ". 9 3 3 . 9",
+   ". 6 8 5 . 6",
+   ". 2 11 5 14 p12"
+  ],
+  "bot": 71
+ },
+ {
+  "key": "g18-8-1808000",
+  "chapter": 18,
+  "slot": 8,
+  "gen": true,
+  "tier": "normal",
+  "name": "Golden Oasis",
+  "rolls": 4,
+  "star3": 3600,
+  "tip": "EVEN blocks only take even dice, ODD blocks only odd dice.",
+  "goals": [
+   {
+    "t": "parity"
+   },
+   {
+    "t": "tile",
+    "n": 2
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . 11 . . .",
+   ". . x13 . x. .",
+   ". 5 5 . x. .",
+   "10 e10 11 3 . 5",
+   "13 7 9 e3 . 10"
+  ],
+  "bot": 67
+ },
+ {
+  "key": "g18-9-1809000",
+  "chapter": 18,
+  "slot": 9,
+  "gen": true,
+  "tier": "hard",
+  "name": "Hidden Canyon",
+  "rolls": 4,
+  "star3": 3700,
+  "tip": "Stack prime-locked blocks to a prime number to unlock them.",
+  "goals": [
+   {
+    "t": "prime"
+   },
+   {
+    "t": "any",
+    "n": 34
+   },
+   {
+    "t": "parity"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . 1",
+   ". . . . p1 e5",
+   ". . 6 o9 13 p10",
+   ". . 8 3 e3 8",
+   "7 . 10 p10 12 13"
+  ],
+  "bot": 16
+ },
+ {
+  "key": "g19-1-1901000",
+  "chapter": 19,
+  "slot": 1,
+  "gen": true,
+  "tier": "breather",
+  "name": "Endless Comet",
+  "rolls": 5,
+  "star3": 2200,
+  "tip": "Match bombs before their timers run out.",
+  "goals": [
+   {
+    "t": "bomb"
+   },
+   {
+    "t": "crystal"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . 10",
+   ". 5 . . . 12",
+   "3 13 . b10:4 . 12",
+   "12 7 10 9 . 2",
+   "C 1 12 4 . 12"
+  ],
+  "bot": 100
+ },
+ {
+  "key": "g19-2-1902000",
+  "chapter": 19,
+  "slot": 2,
+  "gen": true,
+  "tier": "normal",
+  "name": "Hollow Expanse",
+  "rolls": 4,
+  "star3": 4400,
+  "tip": "Spawners add a block every roll. Match them to stop them.",
+  "goals": [
+   {
+    "t": "spawner"
+   },
+   {
+    "t": "anchor"
+   },
+   {
+    "t": "any",
+    "n": 31
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   "12 . . . . .",
+   "12 3 . . . .",
+   "14 6 A . 11 .",
+   "8 7 9 . 8 14",
+   "12 g3 3 . 13 1"
+  ],
+  "bot": 66
+ },
+ {
+  "key": "g19-3-1903000",
+  "chapter": 19,
+  "slot": 3,
+  "gen": true,
+  "tier": "normal",
+  "name": "Drifting Horizon",
+  "rolls": 4,
+  "star3": 5200,
+  "tip": "Ice takes two matches: the first thaws it.",
+  "goals": [
+   {
+    "t": "ice"
+   },
+   {
+    "t": "parity"
+   },
+   {
+    "t": "any",
+    "n": 40
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . 7",
+   ". . . . . 14",
+   "13 9 . . . 13",
+   "4 13 . 9 11 i9",
+   "14 13 . 13 e14 1"
+  ],
+  "bot": 53
+ },
+ {
+  "key": "g19-4-1910078",
+  "chapter": 19,
+  "slot": 4,
+  "gen": true,
+  "tier": "hard",
+  "name": "Endless Expanse",
+  "rolls": 4,
+  "star3": 4000,
+  "tip": "Stack prime-locked blocks to a prime number to unlock them.",
+  "goals": [
+   {
+    "t": "prime"
+   },
+   {
+    "t": "bomb"
+   },
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "any",
+    "n": 31
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . .",
+   ". 3 . 2 b10:3 .",
+   "7 p12 5 p8 14 .",
+   "C b11:4 6 14 13 ."
+  ],
+  "bot": 39
+ },
+ {
+  "key": "g19-5-1905000",
+  "chapter": 19,
+  "slot": 5,
+  "gen": true,
+  "tier": "breather",
+  "name": "Hollow Horizon",
+  "rolls": 5,
+  "star3": 1500,
+  "tip": "Clear blocks touching a crystal to break it free.",
+  "goals": [
+   {
+    "t": "crystal"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   "3 . . . . .",
+   "4 13 . . . .",
+   "13 2 . . . 4",
+   "C 6 12 . . 2",
+   "4 8 9 . 14 14"
+  ],
+  "bot": 100
+ },
+ {
+  "key": "g19-6-1906000",
+  "chapter": 19,
+  "slot": 6,
+  "gen": true,
+  "tier": "normal",
+  "name": "Endless Drift",
+  "rolls": 4,
+  "star3": 5400,
+  "tip": "Gold-framed cells double the points of blocks cleared on them.",
+  "goals": [
+   {
+    "t": "tile",
+    "n": 8
+   },
+   {
+    "t": "anchor"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . 7 . . 1",
+   ". . 4 . . 2",
+   ". . x12 . . 10",
+   "A . 9 13 10 9",
+   "2 . 9 4 6 x10"
+  ],
+  "bot": 56
+ },
+ {
+  "key": "g19-7-1907000",
+  "chapter": 19,
+  "slot": 7,
+  "gen": true,
+  "tier": "normal",
+  "name": "Cosmic Horizon",
+  "rolls": 4,
+  "star3": 4000,
+  "tip": "No gravity: blocks stay exactly where you put them.",
+  "goals": [
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "bomb"
+   },
+   {
+    "t": "any",
+    "n": 28
+   }
+  ],
+  "rows": [
+   ". . 13 . b2:4 .",
+   ". . . . 11 9",
+   "3 . . . 13 .",
+   ". . C . . .",
+   "1 . . . 1 8",
+   "b9:5 8 14 . . .",
+   "C . . . . ."
+  ],
+  "gravity": false,
+  "bot": 64
+ },
+ {
+  "key": "g19-8-1908000",
+  "chapter": 19,
+  "slot": 8,
+  "gen": true,
+  "tier": "normal",
+  "name": "Starlit Rift",
+  "rolls": 4,
+  "star3": 5400,
+  "tip": "Stones break from a burst next to them or a line bonus through their row.",
+  "goals": [
+   {
+    "t": "stone"
+   },
+   {
+    "t": "burst",
+    "n": 5
+   },
+   {
+    "t": "ice"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". 14 . . 12 6",
+   ". 2 . . 8 9",
+   ". i4 . . 1 11",
+   ". 9 . 15 S i4",
+   ". 14 . 4 2 S"
+  ],
+  "bot": 69
+ },
+ {
+  "key": "g19-9-1909000",
+  "chapter": 19,
+  "slot": 9,
+  "gen": true,
+  "tier": "hard",
+  "name": "Silent Drift",
+  "rolls": 4,
+  "star3": 4100,
+  "tip": "Match bombs before their timers run out.",
+  "goals": [
+   {
+    "t": "bomb"
+   },
+   {
+    "t": "prime"
+   },
+   {
+    "t": "anchor"
+   },
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "any",
+    "n": 31
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . 8 . .",
+   ". . . 12 . .",
+   ". . 4 10 14 .",
+   ". . 4 3 p8 A",
+   ". 2 C C 12 b4:4"
+  ],
+  "bot": 36
+ },
+ {
+  "key": "g20-1-2001000",
+  "chapter": 20,
+  "slot": 1,
+  "gen": true,
+  "tier": "breather",
+  "name": "Nebula Horizon",
+  "rolls": 5,
+  "star3": 2200,
+  "tip": "Clear blocks touching a crystal to break it free.",
+  "goals": [
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "parity"
+   }
+  ],
+  "rows": [
+   ". . . . . . .",
+   ". . . . . . .",
+   ". C . . . . .",
+   ". 6 9 . . . .",
+   "8 11 1 . . 12 .",
+   "7 C 7 . . 9 .",
+   "14 5 11 5 . 1 e9"
+  ],
+  "bot": 100
+ },
+ {
+  "key": "g20-2-2002000",
+  "chapter": 20,
+  "slot": 2,
+  "gen": true,
+  "tier": "normal",
+  "name": "Distant Orbit",
+  "rolls": 4,
+  "star3": 4900,
+  "tip": "Match bombs before their timers run out.",
+  "goals": [
+   {
+    "t": "bomb"
+   },
+   {
+    "t": "ice"
+   },
+   {
+    "t": "any",
+    "n": 40
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   "9 . . . . .",
+   "14 14 . . . .",
+   "7 7 . . . .",
+   "14 5 7 5 . b1:4",
+   "8 3 i11 b8:4 . 10"
+  ],
+  "bot": 63
+ },
+ {
+  "key": "g20-3-2004013",
+  "chapter": 20,
+  "slot": 3,
+  "gen": true,
+  "tier": "normal",
+  "name": "Silent Horizon",
+  "rolls": 4,
+  "star3": 3500,
+  "tip": "Stack prime-locked blocks to a prime number to unlock them.",
+  "goals": [
+   {
+    "t": "prime"
+   },
+   {
+    "t": "spawner"
+   },
+   {
+    "t": "any",
+    "n": 28
+   }
+  ],
+  "rows": [
+   ". . . . . . .",
+   ". . . . . . .",
+   ". . . . . . .",
+   ". . . 12 . . 3",
+   ". . . 6 . . 3",
+   "g6 13 . 1 5 . 13",
+   "5 3 . 10 p10 11 13"
+  ],
+  "bot": 79
+ },
+ {
+  "key": "g20-4-2004000",
+  "chapter": 20,
+  "slot": 4,
+  "gen": true,
+  "tier": "hard",
+  "name": "Silent Comet",
+  "rolls": 4,
+  "star3": 5500,
+  "tip": "Clear blocks touching a crystal to break it free.",
+  "goals": [
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "bomb"
+   },
+   {
+    "t": "anchor"
+   },
+   {
+    "t": "lines",
+    "n": 5
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   "C 1 . . . .",
+   "13 8 . . C .",
+   "13 b12:3 . A 3 .",
+   "C 7 b4:4 9 7 .",
+   "14 3 1 C 2 ."
+  ],
+  "bot": 31
+ },
+ {
+  "key": "g20-5-2005000",
+  "chapter": 20,
+  "slot": 5,
+  "gen": true,
+  "tier": "breather",
+  "name": "Drifting Comet",
+  "rolls": 5,
+  "star3": 3000,
+  "tip": "Ice takes two matches: the first thaws it.",
+  "goals": [
+   {
+    "t": "ice"
+   }
+  ],
+  "rows": [
+   ". . . . . . .",
+   ". . . . . . .",
+   ". . . . 13 . .",
+   ". . . . 4 14 .",
+   ". 10 . . 12 10 .",
+   "i9 i5 1 . 13 3 .",
+   "1 14 3 . 5 10 9"
+  ],
+  "bot": 100
+ },
+ {
+  "key": "g20-6-2006000",
+  "chapter": 20,
+  "slot": 6,
+  "gen": true,
+  "tier": "normal",
+  "name": "Cosmic Orbit",
+  "rolls": 4,
+  "star3": 3900,
+  "tip": "No gravity: blocks stay exactly where you put them.",
+  "goals": [
+   {
+    "t": "parity"
+   },
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "any",
+    "n": 28
+   }
+  ],
+  "rows": [
+   "4 . . 7 . 14",
+   ". . . 5 . 10",
+   ". . . e10 8 .",
+   "C C . . . .",
+   "14 . . 6 . .",
+   ". . . 5 7 .",
+   ". 11 . . C 7"
+  ],
+  "gravity": false,
+  "bot": 66
+ },
+ {
+  "key": "g20-7-2007000",
+  "chapter": 20,
+  "slot": 7,
+  "gen": true,
+  "tier": "normal",
+  "name": "Cosmic Comet",
+  "rolls": 4,
+  "star3": 5300,
+  "tip": "Clear the blocks under each anchor to sink it.",
+  "goals": [
+   {
+    "t": "anchor"
+   },
+   {
+    "t": "tile",
+    "n": 8
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   "A . . . . 8",
+   "7 . . . . 7",
+   "14 12 . . . 12",
+   "1 12 6 . . x6",
+   "12 14 11 . x. 6"
+  ],
+  "bot": 76
+ },
+ {
+  "key": "g20-8-2009013",
+  "chapter": 20,
+  "slot": 8,
+  "gen": true,
+  "tier": "normal",
+  "name": "Nebula Comet",
+  "rolls": 4,
+  "star3": 4000,
+  "tip": "Ice takes two matches: the first thaws it.",
+  "goals": [
+   {
+    "t": "any",
+    "n": 36
+   },
+   {
+    "t": "ice"
+   },
+   {
+    "t": "prime"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". 2 . . . p8",
+   ". 4 . . . 6",
+   ". p10 . . . 5",
+   ". 11 . . 12 i9",
+   "p10 2 . . 11 9"
+  ],
+  "bot": 67
+ },
+ {
+  "key": "g20-9-2009000",
+  "chapter": 20,
+  "slot": 9,
+  "gen": true,
+  "tier": "hard",
+  "name": "Hollow Drift",
+  "rolls": 4,
+  "star3": 5300,
+  "tip": "Ice takes two matches: the first thaws it.",
+  "goals": [
+   {
+    "t": "ice"
+   },
+   {
+    "t": "bomb"
+   },
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "anchor"
+   },
+   {
+    "t": "any",
+    "n": 43
+   }
+  ],
+  "rows": [
+   ". . . . . . .",
+   ". . . . . . .",
+   ". . i10 . . . .",
+   ". . 9 . . . .",
+   "3 A 2 7 . . .",
+   "7 11 C C 13 . .",
+   "C C 13 b6:5 b5:5 . 5"
+  ],
+  "bot": 21
  }
 ];
 
@@ -3783,6 +6293,133 @@ const HAND_LEVELS = [
       '4 . o1 . 2 .',
     ],
   },
+  {
+    key: 'emeraldvault', name: 'Emerald Vault', rolls: 4, star3: 4900, reward: { emp: 'wild' },
+    tip: 'Boss level! Crystals, prime locks and anchors.',
+    goals: [{ t: 'crystal' }, { t: 'prime' }, { t: 'anchor' }, { t: 'any', n: 43 }, { t: 'lines', n: 2 }],
+    rows: [
+      '. . . . . .',
+      '. . . . . .',
+      '. A . . C .',
+      '. p9 . . 5 .',
+      'C 3 . 7 p4 A',
+      '6 2 . p8 1 4',
+      '1 C . 5 3 2',
+    ],
+  },
+  {
+    key: 'harvestmoon', name: 'Harvest Moon', rolls: 4, star3: 4900, reward: { gems: 50 },
+    tip: 'Boss level! Two bursts, six 5s and two line bonuses.',
+    goals: [{ t: 'burst', n: 2 }, { t: 'break', v: 5, n: 6 }, { t: 'lines', n: 2 }, { t: 'any', n: 40 }],
+    rows: [
+      '. . . . . . .',
+      '. . . . . . .',
+      '. . . . . . .',
+      '. 16 . . . 17 .',
+      '5 4 . 9 . 3 5',
+      '7 5 . 2 15 6 1',
+      '3 9 . 5 8 4 7',
+    ],
+  },
+  {
+    key: 'abyssalgate', name: 'Abyssal Gate', rolls: 4, star3: 4500, reward: { emp: 'echo' },
+    tip: 'Boss level! EVEN/ODD blocks, ice and spawners in the deep.',
+    goals: [{ t: 'parity' }, { t: 'ice' }, { t: 'spawner' }, { t: 'lines', n: 3 }, { t: 'any', n: 46 }],
+    rows: [
+      '. . . . . .',
+      '. . . . . .',
+      '. . . . . .',
+      '. e6 . . o7 .',
+      'x3 i4 . o5 g2 x8',
+      'e2 g7 . i9 6 o1',
+      '9 o3 . e4 x1 2',
+    ],
+  },
+  {
+    key: 'starlitoasis', name: 'Starlit Oasis', rolls: 3, star3: 3000, gravity: false, reward: { gems: 50 },
+    tip: 'Boss level! No gravity, bombs and crystals.',
+    goals: [{ t: 'bomb' }, { t: 'crystal' }, { t: 'any', n: 30 }],
+    rows: [
+      '. . . . . .',
+      '. b5:4 . C . 2',
+      '3 . . . 6 .',
+      '. C . b7:4 . .',
+      '4 . 2 . . C',
+      '. 6 . . b3:4 .',
+      '1 . . 7 . 4',
+    ],
+  },
+  {
+    key: 'whiteout', name: 'Whiteout', rolls: 4, star3: 4900, reward: { emp: 'chain' },
+    tip: 'Boss level! Ice, stone and anchors in the blizzard.',
+    goals: [{ t: 'ice' }, { t: 'stone' }, { t: 'anchor' }, { t: 'lines', n: 3 }, { t: 'any', n: 45 }],
+    rows: [
+      '. . . . . .',
+      '. . . . . .',
+      '. A . . A .',
+      '. i5 . . S .',
+      'S 3 . i7 2 i4',
+      'i6 2 . 5 i8 3',
+      '4 S . 1 6 S',
+    ],
+  },
+  {
+    key: 'prismheart', name: 'Prism Heart', rolls: 4, star3: 4800, reward: { gems: 60 },
+    tip: 'Boss level! Drop a 3 between the 3s to start a cascade.',
+    goals: [{ t: 'crystal' }, { t: 'combo', n: 2 }, { t: 'tile', n: 2 }, { t: 'any', n: 36 }],
+    rows: [
+      '. . . . . .',
+      '. . . . . .',
+      '. . . . . .',
+      '. . . . . .',
+      '7 7 . C . .',
+      'x3 x3 . 5 . C',
+      '7 5 9 C 2 4',
+    ],
+  },
+  {
+    key: 'dustdevil', name: 'Dust Devil', rolls: 5, star3: 3400, gravity: false, reward: { emp: 'split' },
+    tip: 'Boss level! No gravity with EVEN/ODD and prime locks.',
+    goals: [{ t: 'parity' }, { t: 'prime' }],
+    rows: [
+      '. . . . . .',
+      '. e4 . . p9 .',
+      '3 . . o5 . .',
+      '. . p6 . . e2',
+      'o7 . . . 3 .',
+      '. e8 . p10 . .',
+      '5 . . . o1 .',
+    ],
+  },
+  {
+    key: 'starfall', name: 'Starfall', rolls: 4, star3: 5100, reward: { gems: 80 },
+    tip: 'Boss level! A bit of everything among the stars.',
+    goals: [{ t: 'crystal' }, { t: 'bomb' }, { t: 'anchor' }, { t: 'lines', n: 2 }, { t: 'any', n: 47 }],
+    rows: [
+      '. . . . . . .',
+      '. . . . . . .',
+      '. C . . . A .',
+      '. b6:4 . . . i5 .',
+      'S e4 . g3 . 8 C',
+      'x7 p9 . 2 o5 3 6',
+      '1 6 . x4 S 7 2',
+    ],
+  },
+  {
+    key: 'eclipse', name: 'Eclipse', rolls: 4, star3: 5700, reward: { gems: 200, finale: true },
+    tip: 'The final boss. Everything you have learned, all at once.',
+    goals: [{ t: 'crystal' }, { t: 'bomb' }, { t: 'anchor' }, { t: 'ice' }, { t: 'lines', n: 3 }, { t: 'any', n: 49 }],
+    rows: [
+      '. . . . . . .',
+      '. . . . . . .',
+      '. C . . . C .',
+      '. b5:4 . . . b8:4 .',
+      'A i6 . C . i3 A',
+      'p8 e2 . 9 . o7 p4',
+      'x6 S . g5 . S x2',
+      '3 9 . 2 7 4 1',
+    ],
+  },
 ];
 
 // ===== chapters =====
@@ -3809,6 +6446,24 @@ const CHAPTERS = [
     plan: ['primetime', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'neoncore'] },
   { n: 11, name: 'Desert Dunes', env: 'desert', variant: 'dunes', names: 'dunes', blurb: 'No gravity: every die goes exactly where you put it.',
     plan: ['stillsands', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'mirage'] },
+  { n: 12, name: 'Emerald Caves', env: 'crystal', variant: 'emerald', names: 'crystal', blurb: 'Crystals, prime locks and anchors in green light.',
+    plan: ['gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'emeraldvault'] },
+  { n: 13, name: 'Meadow in Autumn', env: 'meadow', variant: 'autumn', names: 'autumn', blurb: 'Back to basics: bursts, lines and number hunts.',
+    plan: ['gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'harvestmoon'] },
+  { n: 14, name: 'Deep Reef', env: 'reef', variant: 'deep', names: 'reef', blurb: 'EVEN/ODD, ice and spawners in the glowing deep.',
+    plan: ['gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'abyssalgate'] },
+  { n: 15, name: 'Oasis Night', env: 'desert', variant: 'oasis', names: 'dunes', blurb: 'Bombs and crystals, with and without gravity.',
+    plan: ['gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'starlitoasis'] },
+  { n: 16, name: 'Blizzard', env: 'glacier', variant: 'blizzard', names: 'glacier', blurb: 'Ice, stone and anchors in a whiteout.',
+    plan: ['gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'whiteout'] },
+  { n: 17, name: 'Glowing Caves', env: 'crystal', variant: 'glow', names: 'crystal', blurb: 'Crystals and gold tiles in shimmering light.',
+    plan: ['gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'prismheart'] },
+  { n: 18, name: 'Sandstorm', env: 'desert', variant: 'sandstorm', names: 'dunes', blurb: 'No gravity, EVEN/ODD and prime locks in the wind.',
+    plan: ['gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'dustdevil'] },
+  { n: 19, name: 'The Void: Nebula', env: 'void', variant: 'nebula', names: 'void', blurb: 'Everything you know, floating among the stars.',
+    plan: ['gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'starfall'] },
+  { n: 20, name: 'The Void: Eclipse', env: 'void', variant: 'eclipse', names: 'void', blurb: 'The finale. Everything, at its hardest.',
+    plan: ['gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'eclipse'] },
 ];
 // levels parked for later chapters
 const PARKED = [];
@@ -4165,7 +6820,16 @@ ENVS.desert = {
   frame: '#c98a4a', gem: '#3fd0ff', leaf: ['#5fae4a', '#4a9a3a', '#7cc45a'], trunk: '#a8734a', rock: '#d9a070', flower: ['#ff6b8b', '#ffd23f', '#ffffff'],
   particle: '#f5deb3', fall: 0.05, drift: 0.7, psize: 0.14, felt: '#5a3a2a', tag: '#e0903a', sun: '#fff0c8', sunI: 2.6, hemiI: 1.5,
 };
+ENVS.void = {
+  env: 'void', props: 'void', bgTop: '#05030f', bgBottom: '#2a1450', grass: '#1a1430', dirt: '#2a2045', dirtDark: '#120c24', panel: '#0e0a20', cell: '#1c1638', cellEdge: '#7a5cff',
+  frame: '#3a2f6a', gem: '#ff4fd8', leaf: ['#7a5cff', '#ff4fd8', '#3fd0ff'], trunk: '#3a2f6a', rock: '#3a3456', flower: ['#ffffff', '#b78bff', '#7ef0ff'],
+  particle: '#ffffff', fall: 0, firefly: true, psize: 0.12, felt: '#1a1430', tag: '#7a5cff', sun: '#cfc8ff', sunI: 1.6, hemiI: 1.2, hemiSky: '#b8a8ff',
+};
 const VARIANTS = {
+  void: {
+    nebula: { label: 'Nebula', bgTop: '#120838', bgBottom: '#6a2a7a' },
+    eclipse: { label: 'Eclipse', bgTop: '#000000', bgBottom: '#2a1206', leaf: ['#ff9a3c', '#ffd23f', '#ff4f2e'], particle: '#ffcf8a', tag: '#ff7a1a', gem: '#ff9a3c', cellEdge: '#ff9a3c', eclipse: true },
+  },
   reef: {
     shallows: { label: 'Shallows' },
     deep: { label: 'Deep', bgTop: '#020a2a', bgBottom: '#0b3a6a', particle: '#7ef0ff', firefly: true, fall: -0.1, sunI: 1.1, hemiI: 1.0, leaf: ['#ff4fd8', '#7ef0ff', '#b78bff'], tag: '#2f6bff' },
@@ -4256,7 +6920,19 @@ function desertProp(parent, x, z, s, th) {
   addMesh(new THREE.IcosahedronGeometry(0.07, 0), flatMat(th.flower[0], { emissive: th.flower[0], emissiveIntensity: 0.4 }), g, [0, 1.42, 0]);
   parent.add(g); return g;
 }
-function decorProp(parent, x, z, s, th) { return th.props === 'reef' ? reefProp(parent, x, z, s, th) : th.props === 'desert' ? desertProp(parent, x, z, s, th) : th.props === 'crystal' ? crystalProp(parent, x, z, s, th) : th.props === 'volcano' ? basalt(parent, x, z, s, th) : th.props === 'clockwork' ? gearProp(parent, x, z, s, th) : tree(parent, x, z, s, th); }
+function voidProp(parent, x, z, s, th) {
+  const g = new THREE.Group(); g.position.set(x, 0.6, z); g.scale.setScalar(s);
+  for (let i = 0; i < 3; i++) {
+    const c = th.leaf[i % 3];
+    const m = addMesh(new THREE.OctahedronGeometry(rand(0.15, 0.32), 0), flatMat(th.dirtDark, { emissive: c, emissiveIntensity: 0.8, roughness: 0.3 }), g, [rand(-0.4, 0.4), rand(0, 1.2), rand(-0.3, 0.3)], { rot: [rand(0, 3), rand(0, 3), 0] });
+    m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry), new THREE.LineBasicMaterial({ color: c })));
+    world.props.push({ o: m, kind: 'float', ph: rand(0, 6), y: m.position.y });
+  }
+  const ring = addMesh(new THREE.TorusGeometry(0.5, 0.03, 4, 24), flatMat(th.leaf[0], { emissive: th.leaf[0], emissiveIntensity: 1.2 }), g, [0, 0.6, 0], { rot: [1.2, 0, 0], cast: false });
+  world.props.push({ o: ring, kind: 'spin', ph: 0 });
+  parent.add(g); return g;
+}
+function decorProp(parent, x, z, s, th) { return th.props === 'void' ? voidProp(parent, x, z, s, th) : th.props === 'reef' ? reefProp(parent, x, z, s, th) : th.props === 'desert' ? desertProp(parent, x, z, s, th) : th.props === 'crystal' ? crystalProp(parent, x, z, s, th) : th.props === 'volcano' ? basalt(parent, x, z, s, th) : th.props === 'clockwork' ? gearProp(parent, x, z, s, th) : tree(parent, x, z, s, th); }
 function gearMesh(r, teeth, color, depth = 0.12) {
   const g = new THREE.Group(), m = flatMat(color, { metalness: 0.55, roughness: 0.35 });
   const disc = new THREE.Mesh(new THREE.CylinderGeometry(r, r, depth, Math.max(8, teeth)), m); disc.rotation.x = Math.PI / 2; disc.castShadow = true; g.add(disc);
@@ -4335,6 +7011,19 @@ function buildWorld(th, bw, bh, nDice = 3) {
     const x = rand(-R + 0.4, R - 0.4), z = rand(0.75, 1.7);
     const fl = addMesh(new THREE.TetrahedronGeometry(rand(0.05, 0.09), 0), flatMat(th.flower[i % th.flower.length], { emissive: th.flower[i % th.flower.length], emissiveIntensity: 0.15 }), W, [x, 0.06, z], { rot: [rand(0, 3), rand(0, 3), 0], cast: false });
     world.props.push({ o: fl, kind: 'spin', ph: rand(0, 6) });
+  }
+  if (th.props === 'void') {
+    if (th.eclipse) {
+      const sunG = new THREE.Group(); sunG.position.set(6, 10, -26);
+      addMesh(new THREE.IcosahedronGeometry(3.2, 2), flatMat('#050308', { roughness: 1 }), sunG, [0, 0, 0.5], { cast: false, receive: false });
+      const corona = new THREE.Mesh(new THREE.RingGeometry(3.2, 5.2, 48), new THREE.MeshBasicMaterial({ color: '#ffb060', transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending, depthWrite: false }));
+      sunG.add(corona); W.add(sunG); world.props.push({ o: corona, kind: 'corona', ph: 0 });
+    } else {
+      const pl = new THREE.Group(); pl.position.set(-9, 9, -22);
+      addMesh(new THREE.IcosahedronGeometry(3.5, 1), flatMat('#7a5cff', { emissive: '#3a1a7a', emissiveIntensity: 0.6 }), pl, [0, 0, 0], { cast: false, receive: false });
+      addMesh(new THREE.TorusGeometry(5.4, 0.35, 3, 40), flatMat('#ff8bd8', { emissive: '#ff4fd8', emissiveIntensity: 0.6 }), pl, [0, 0, 0], { rot: [1.25, 0.3, 0], cast: false, receive: false });
+      W.add(pl); world.props.push({ o: pl, kind: 'spin', ph: 0 });
+    }
   }
   if (th.props === 'reef') {
     for (let i = 0; i < 6; i++) {
@@ -4925,7 +7614,7 @@ let lastGoalCur = [];
 let shownScore = 0;
 function updateHUD() {
   if (!S) return;
-  $('#lvl-name').innerHTML = `<div><small>${level.endless ? 'Endless Climb' : 'Chapter ' + level.chapter} · ${esc(level.id)}${S.nograv ? ' · No gravity' : ''}</small>${esc(level.name)}</div>`;
+  $('#lvl-name').innerHTML = `<div><small>${level.endless ? 'Endless Climb' : level.daily ? 'Daily Challenge' : 'Chapter ' + level.chapter} · ${esc(level.id)}${S.nograv ? ' · No gravity' : ''}</small>${esc(level.name)}</div>`;
   $('#rolls-pill').innerHTML = `${ICON.dice}${S.rollsLeft}`;
   const gp = L.goalProgress(S);
   $('#goals').innerHTML = gp.map((p, i) => {
@@ -5256,6 +7945,7 @@ async function playResolve(st) {
 // win / lose
 async function winSequence() {
   if (level.endless) return endlessWin();
+  if (level.daily) return dailyEnd(true);
   busy = true; hint(''); updateHUD();
   sfx.win(); banner('GOAL!', 'big'); vibrate([40, 30, 60]);
   spawnConfetti(new THREE.Vector3(0, S.h * 0.6, 1), 90, 7);
@@ -5304,6 +7994,14 @@ function grantReward(r) {
     if (!P.unlockedEmps.includes(r.emp)) P.unlockedEmps.push(r.emp);
     return `<div class="reward">${empIcon(r.emp)}<div><b>Empowerment: ${EMPS[r.emp].name}!</b><br>${EMPS[r.emp].desc} Attach it in Dice.</div></div>`;
   }
+  if (r.finale) {
+    P.finished = true; P.gems += r.gems || 0;
+    return `<div class="reward" style="background:linear-gradient(135deg,#ffe066,#ff9a3c)"><div class="emp-ico" style="background:#2a1b4d">🏆</div><div><b>You beat Dice Drop!</b><br>All 20 chapters cleared. +${r.gems} gems. Endless Climb and the Daily Challenge keep going.</div></div>`;
+  }
+  if (r.gems) {
+    P.gems += r.gems;
+    return `<div class="reward"><div class="emp-ico" style="background:#1fc8b4">${ICON.gem.replace('class="gem-ico"', 'width="24" height="24"')}</div><div><b>+${r.gems} gems!</b><br>Spend them on dice and powers in the shop.</div></div>`;
+  }
   if (r.endless) {
     P.endless = true;
     return `<div class="reward"><div class="emp-ico" style="background:linear-gradient(135deg,#ff9f1c,#ff4f8b)">∞</div><div><b>Endless Climb unlocked!</b><br>Endless generated floors. Find it at the bottom of the map.</div></div>`;
@@ -5321,6 +8019,7 @@ function grantReward(r) {
 }
 async function loseSequence(reason) {
   if (level && level.endless) return endlessOver(reason);
+  if (level && level.daily) return dailyEnd(false, reason);
   busy = true; hint(''); sfx.lose(); vibrate(60);
   const vs = [...views.values()];
   await tween(700, e => vs.forEach(v => { if (v.k === 'n') v.body.material.color.lerp(new THREE.Color('#8a8499'), e * 0.15); v.g.rotation.z = Math.sin(v.id) * 0.12 * e; v.g.scale.y = 1 - 0.12 * e; }));
@@ -5468,7 +8167,8 @@ function onAct(act, ds) {
     case 'undo': closeModal(); undo(); break;
     case 'giveup': closeModal(); loseSequence('Stuck!'); break;
     case 'map': closeModal(); showMap(); break;
-    case 'retry': closeModal(); if (level && level.endless) startEndless(); else startLevel(level); break;
+    case 'retry': closeModal(); if (level && level.endless) startEndless(); else if (level && level.daily) startDaily(); else startLevel(level); break;
+    case 'daily': closeModal(); startDaily(); break;
     case 'endless': closeModal(); startEndless(); break;
     case 'boost': { const b = BOOSTS.find(x => x.id === ds.id); if (b && run) { b.apply(run); save(); toast(b.name + '!', 1400); } closeModal(); nextFloor(); break; }
     case 'continue': closeModal(); if (run && (run.floor - 1) % 5 === 0) showBoosts(); else nextFloor(); break;
@@ -5752,6 +8452,67 @@ async function endlessOver(reason) {
   busy = false;
 }
 
+// =============== Daily Challenge ===============
+const DAILY_DICE = ['d20:chain+loaded', 'd12:hex+mirror', 'd10:blazing+echo', 'd8:wild+reroll', 'd6:split', 'd6:heavy'];
+const pad2 = n => String(n).padStart(2, '0');
+const dateKey = (d = new Date()) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+const prettyDate = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }); };
+const hashStr = str => { let h = 2166136261; for (const c of str) { h ^= c.charCodeAt(0); h = Math.imul(h, 16777619); } return h | 0; };
+const dailyUnlocked = () => { const i = LEVELS.findIndex(l => l.chapter === 12); return i > 0 && levelUnlocked(i); };
+let dailyCache = null;
+async function makeDaily(key) {
+  if (dailyCache && dailyCache.date === key) return dailyCache;
+  const seed = hashStr('dicedrop-daily-' + key), rr = GEN.rng(seed);
+  const dayNum = Math.floor(Date.parse(key) / 864e5);
+  const ch = CHAPTERS[((dayNum % CHAPTERS.length) + CHAPTERS.length) % CHAPTERS.length];
+  let lv = null;
+  for (let attempt = 0; attempt < 6 && !lv; attempt++) {
+    const tpl = ENDLESS_POOL[Math.floor(rr() * ENDLESS_POOL.length)];
+    const board = GEN.generateBoard({ ...EBASE, w: [6, 6], h: [7, 7], ...tpl }, seed + attempt * 7919);
+    const cand = { key: 'daily', name: '', rolls: 5, star3: 1e9, ...board };
+    if (GEN.checkLevel(cand)) continue;
+    for (let k = 0; k < 5; k++) {
+      await yieldUI();
+      const r = BOT.simulate(cand, DAILY_DICE, 24, 1, seed + k);
+      if (r.win > 0.65 && cand.rolls > 3) cand.rolls--; else if (r.win < 0.45 && cand.rolls < 9) cand.rolls++; else break;
+    }
+    lv = cand;
+  }
+  dailyCache = { ...lv, key: 'daily-' + key, daily: true, date: key, chapter: ch.n, id: prettyDate(key), name: GEN.levelName(ch.names || ch.env, GEN.rng(seed + 1), new Set()) };
+  return dailyCache;
+}
+async function startDaily() {
+  closeModal(); buildingOverlay("Building today's challenge…"); await yieldUI();
+  const lv = await makeDaily(dateKey()); buildingOverlay(null);
+  const rec = (P.daily || {})[lv.date];
+  await startLevel(lv);
+  toast(rec ? `Practice run: your official score today is ${rec.score}.` : 'Your first full attempt today is the one that counts!', 3000);
+}
+async function dailyEnd(won, reason) {
+  busy = true; hint('');
+  if (won) { sfx.win(); banner('GOAL!', 'big'); spawnConfetti(new THREE.Vector3(0, S.h * 0.6, 1), 70, 7); } else { sfx.lose(); }
+  const final = S.score + (won ? S.rollsLeft * 150 : 0), key = level.date;
+  P.daily = P.daily || {};
+  const official = !P.daily[key];
+  let gems = 0;
+  if (official) {
+    const y = new Date(Date.parse(key + 'T12:00:00')); y.setDate(y.getDate() - 1);
+    P.dailyStreak = P.dailyLast === dateKey(y) ? (P.dailyStreak || 0) + 1 : 1;
+    P.dailyLast = key; P.daily[key] = { score: final, won };
+    gems = 5 + Math.min(10, P.dailyStreak - 1); P.gems += gems;
+  }
+  save();
+  await wait(1200);
+  const rec = P.daily[key];
+  openModal(`<h1>${won ? 'Challenge complete!' : esc(reason || 'Out of rolls')}</h1><div class="sub">Daily Challenge · ${esc(prettyDate(key))}</div>
+    <div class="score-big">${final}</div>
+    <div class="sub">${official ? `Official score recorded${won ? '' : ' (not cleared)'}` : `Practice run · official score ${rec.score}${rec.won ? '' : ' (not cleared)'}`}</div>
+    ${official ? `<div class="row center" style="font-weight:700;font-size:18px">${ICON.gem} +${gems} gems · 🔥 ${P.dailyStreak}-day streak</div>` : ''}
+    <div class="tip">A new challenge arrives at midnight. Everyone gets the same board each day.</div>
+    <div class="actions"><button class="btn ghost" data-act="map">Map</button><button class="btn violet" data-act="daily">Practice again</button></div>`, { center: true, dismiss: false });
+  busy = false;
+}
+
 // =============== screens ===============
 function showIntro(lv) {
   const i = levelIndex(lv.key);
@@ -5835,7 +8596,7 @@ function showMap() {
   const html = [`<div class="map-inner"><div class="map-top"><span class="pill gems">${ICON.gem} ${P.gems}</span><span class="pill">${ICON.star(true).replace('<svg', '<svg width="20" height="20"')} ${totalStars}</span><span style="flex:1"></span>
     <button class="icon-btn" data-act="howto" aria-label="How to play">?</button><button class="icon-btn" data-act="collection" aria-label="Dice">${ICON.dice}</button><button class="icon-btn" data-act="settings" aria-label="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="12" cy="12" r="3.2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M4.9 19.1L7 17M17 7l2.1-2.1"/></svg></button></div>
     <div class="logo">${'DICE'.split('').map((c, i) => `<span style="animation-delay:${i * 0.12}s">${c}</span>`).join('')} ${'DROP'.split('').map((c, i) => `<span style="animation-delay:${(i + 4) * 0.12}s">${c}</span>`).join('')}</div>
-    <div class="tagline">Roll. Drop. Match. Burst!</div>`];
+    <div class="tagline">${P.finished ? '🏆 Champion of all 20 chapters!' : 'Roll. Drop. Match. Burst!'}</div>`];
   const nextIdx = LEVELS.findIndex((l, i) => levelUnlocked(i) && !P.stars[l.key]);
   for (const ch of CHAPTERS) {
     const lvls = LEVELS.map((l, i) => [l, i]).filter(([l]) => l.chapter === ch.n), th = themeOf(ch.n);
@@ -5850,11 +8611,15 @@ function showMap() {
     });
     html.push(`</div></div>`);
   }
+  const today = dateKey(), drec = (P.daily || {})[today], streak = P.dailyLast === today || (() => { const y = new Date(); y.setDate(y.getDate() - 1); return P.dailyLast === dateKey(y); })() ? (P.dailyStreak || 0) : 0;
+  html.push(dailyUnlocked()
+    ? `<div class="world" style="text-align:center;background:linear-gradient(160deg,#e0f7ff,#efe7ff)"><span class="tag" style="background:linear-gradient(90deg,#3fa9ff,#7b5cff)">Daily · ${esc(prettyDate(today))}</span><h2>Daily Challenge</h2><p>One new board a day, the same for everyone. Your first full attempt counts.</p><p>${drec ? `<b>Today: ${drec.score}${drec.won ? ' ✔' : ''}</b>` : '<b>Not played yet today</b>'}${streak ? ` · 🔥 ${streak}-day streak` : ''}</p><div class="actions"><button class="btn violet" data-act="daily">${drec ? 'Practice' : "Play today's"} ▶</button></div></div>`
+    : `<div class="world" style="text-align:center;opacity:.85"><span class="tag" style="background:#9a93ad">Daily</span><h2>Daily Challenge</h2><p>🔒 Reach chapter 12 to unlock a new board every day.</p></div>`);
   const eb = P.endlessBest || { floor: 0, score: 0 };
   html.push(P.endless
     ? `<div class="world" style="text-align:center;background:linear-gradient(160deg,#fff3c4,#ffe0f0)"><span class="tag" style="background:linear-gradient(90deg,#ff9f1c,#ff4f8b)">Endless</span><h2>Endless Climb</h2><p>Generated floors that get harder as you climb. Leftover rolls carry over, and every 5 floors you pick a boost.</p><p><b>Best: floor ${eb.floor}</b>${eb.score ? ` · ${eb.score} points` : ''}</p><div class="actions"><button class="btn pink" data-act="endless">Start climb ▶</button></div></div>`
     : `<div class="world" style="text-align:center;opacity:.85"><span class="tag" style="background:#9a93ad">Endless</span><h2>Endless Climb</h2><p>🔒 Beat chapter 11 to unlock endless generated floors.</p></div>`);
-  html.push(`<div class="world" style="text-align:center"><h2>More chapters coming</h2><p>Volcano, Clockwork, Crystal Caves, Reef, Desert and the Void, with D10, D12 and D20.</p></div></div>`);
+  html.push(`<div class="world" style="text-align:center"><h2>${P.finished ? '🏆 All 20 chapters cleared' : '20 chapters, 200 levels'}</h2><p>${P.finished ? 'You beat the Eclipse. The Daily Challenge and Endless Climb keep going.' : 'From the Meadow to the Void. Beat the Eclipse to finish the game.'}</p></div></div>`);
   const sc = $('#screen-map'); sc.innerHTML = html.join(''); sc.classList.remove('hidden');
   if (!sc._wired) {
     sc._wired = true;
@@ -5880,6 +8645,8 @@ function frame(now) {
     else if (p.kind === 'bob') p.o.position.y = p.y + Math.sin(T * 0.7 + p.ph) * 0.25;
     else if (p.kind === 'spin') p.o.rotation.y += dt * 0.8;
     else if (p.kind === 'steam') { if (Math.random() < dt * 1.2) spawnSparks(p.o.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.45, 0)), '#ffffff', 1, 0.3, 0.6, 1.4, -0.5); }
+    else if (p.kind === 'float') { p.o.position.y = p.y + Math.sin(T * 1.2 + p.ph) * 0.15; p.o.rotation.y += dt * 0.6; }
+    else if (p.kind === 'corona') { p.o.material.opacity = 0.7 + 0.2 * Math.sin(T * 1.5); p.o.rotation.z += dt * 0.05; }
     else if (p.kind === 'fish') { p.o.position.x += p.sp * dt; p.o.position.y = p.y + Math.sin(T * 1.5 + p.ph) * 0.3; if (p.o.position.x > 13) p.o.position.x = -13; if (p.o.position.x < -13) p.o.position.x = 13; }
     else if (p.kind === 'glow') p.o.material.emissiveIntensity = 0.7 + 0.35 * Math.sin(T * 1.8 + p.ph);
     else if (p.kind === 'tile') p.o.material.opacity = 0.7 + 0.3 * Math.sin(T * 3 + p.ph);
@@ -5951,7 +8718,7 @@ function frame(now) {
 }
 
 // =============== boot ===============
-window.__dd = { get S() { return S; }, startLevel, doRoll, commit, undo, showMap, LEVELS, L, get busy() { return busy; }, P: () => P, startEndless, get run() { return run; }, get level() { return level; } };
+window.__dd = { startDaily, get S() { return S; }, startLevel, doRoll, commit, undo, showMap, LEVELS, L, get busy() { return busy; }, P: () => P, startEndless, get run() { return run; }, get level() { return level; } };
 applyQuality();
 showMap();
 requestAnimationFrame(frame);
