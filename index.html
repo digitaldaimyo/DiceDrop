@@ -7587,16 +7587,16 @@ const RARITY = {
 const SKINS = [
   { id: 'cherry', name: 'Cherry', r: 'common', src: { stars: 25 }, color: '#e8263f', rough: 0.18, edge: '#ffd0d8', sw: ['#ff6a7c', '#b5122a'], look: 'Glossy candy red' },
   { id: 'sky', name: 'Sky', r: 'common', src: { stars: 50 }, color: '#2f9bff', rough: 0.18, edge: '#d6ecff', sw: ['#7cc6ff', '#1567c9'], look: 'Glossy bright blue' },
-  { id: 'copper', name: 'Copper', r: 'common', src: { stars: 100 }, color: '#d9804e', rough: 0.36, metal: 0.9, env: 1, edge: '#ffd2b0', sw: ['#f2a777', '#93492a'], look: 'Warm brushed metal' },
+  { id: 'copper', name: 'Copper', r: 'common', src: { stars: 100 }, color: '#d9804e', rough: 0.26, metal: 0.85, env: 1.3, rim: ['#ffc39a', 3, 0.55], edge: '#ffd2b0', sw: ['#f2a777', '#93492a'], look: 'Warm brushed metal' },
   { id: 'frost', name: 'Frost Glass', r: 'common', src: { stars: 225 }, color: '#d6f1ff', rough: 0.1, env: 0.9, opacity: 0.55, edge: '#ffffff', edgeOp: 0.85, rim: ['#c8eeff', 2.2, 0.7], sw: ['#f2fbff', '#9fd6f2'], look: 'Frosted see-through glass' },
-  { id: 'gold', name: 'Gold Leaf', r: 'common', src: { ach: 'streak7' }, color: '#ffc93a', rough: 0.22, metal: 1, env: 1.1, edge: '#fff2b0', sw: ['#ffe27a', '#c98a00'], look: 'Shiny metallic gold' },
+  { id: 'gold', name: 'Gold Leaf', r: 'common', src: { ach: 'streak7' }, color: '#ffc93a', rough: 0.18, metal: 0.9, env: 1.3, rim: ['#fff0a0', 3, 0.55], edge: '#fff2b0', sw: ['#ffe27a', '#c98a00'], look: 'Shiny metallic gold' },
   { id: 'mint', name: 'Mint', r: 'common', src: { shop: 1 }, color: '#6fdcae', rough: 0.85, edge: '#e6fff4', sw: ['#9ff0cb', '#3fae80'], look: 'Soft matte green' },
   { id: 'lemon', name: 'Lemon', r: 'common', src: { shop: 1 }, color: '#ffe066', rough: 0.85, edge: '#fffbe0', sw: ['#fff09e', '#e0b520'], look: 'Soft matte yellow' },
   { id: 'grape', name: 'Grape', r: 'common', src: { shop: 1 }, color: '#8b4fd8', rough: 0.18, edge: '#e6d4ff', sw: ['#b383f2', '#5a2aa0'], look: 'Glossy purple' },
   { id: 'coal', name: 'Coal', r: 'common', src: { shop: 1 }, color: '#2a2630', rough: 0.85, edge: '#ffffff', edgeOp: 0.9, sw: ['#4a4552', '#151219'], look: 'Matte black, white edges' },
   { id: 'snow', name: 'Snow', r: 'common', src: { shop: 1 }, color: '#f6f4fa', rough: 0.85, edge: '#ff9fd0', edgeOp: 0.9, sw: ['#ffffff', '#d9d3e6'], look: 'Matte white, pastel edges' },
   { id: 'bubblegum', name: 'Bubblegum', r: 'common', src: { shop: 1 }, color: '#ff7ac0', rough: 0.18, edge: '#ffe0f0', sw: ['#ffa8d6', '#e0408f'], look: 'Glossy pink' },
-  { id: 'silver', name: 'Silver', r: 'common', src: { shop: 1 }, color: '#e4e8ef', rough: 0.12, metal: 1, env: 1.2, edge: '#ffffff', sw: ['#ffffff', '#8f98a8'], look: 'Polished chrome' },
+  { id: 'silver', name: 'Silver', r: 'common', src: { shop: 1 }, color: '#e4e8ef', rough: 0.1, metal: 0.9, env: 1.3, rim: ['#ffffff', 3, 0.45], edge: '#ffffff', sw: ['#ffffff', '#8f98a8'], look: 'Polished chrome' },
   { id: 'marble', name: 'Marble', r: 'rare', src: { stars: 150 }, pat: 'marble', scale: 0.9, rough: 0.25, edge: '#ffffff', sw: ['#ffffff', '#c9c9d2'], look: 'White stone, grey veins' },
   { id: 'galaxy', name: 'Galaxy Speckle', r: 'rare', src: { stars: 300 }, pat: 'galaxy', scale: 0.8, rough: 0.3, edge: '#b8c8ff', sw: ['#3a4ab0', '#121845'], look: 'Deep blue with star flecks' },
   { id: 'wood', name: 'Woodgrain', r: 'rare', src: { shop: 1 }, pat: 'wood', scale: 0.7, rough: 0.7, edge: '#ffe2c0', edgeOp: 0.4, sw: ['#d09a63', '#7a4a24'], look: 'Carved wood' },
@@ -7636,12 +7636,16 @@ const howToEarn = it => it.src.stars ? `Reach ${it.src.stars} stars` : it.src.ac
 let skinEnv = null;
 function getSkinEnv() {
   if (skinEnv) return skinEnv;
-  skinEnv = canvasTex(256, (g, s) => {
-    const gr = g.createLinearGradient(0, 0, 0, s);
-    gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.35, '#e9e2ff'); gr.addColorStop(0.5, '#ffd9b8'); gr.addColorStop(0.62, '#7a6aa0'); gr.addColorStop(1, '#2a1b4d');
-    g.fillStyle = gr; g.fillRect(0, 0, s, s);
-    g.fillStyle = 'rgba(255,255,255,.95)'; g.fillRect(s * 0.15, s * 0.12, s * 0.16, s * 0.14); g.fillRect(s * 0.62, s * 0.18, s * 0.22, s * 0.08);
-  });
+  // high-contrast studio: bright softboxes and horizon over a dark floor, so each flat face reflects something different
+  const c = document.createElement('canvas'); c.width = 512; c.height = 256; const g = c.getContext('2d'), W = 512, H = 256;
+  const gr = g.createLinearGradient(0, 0, 0, H);
+  gr.addColorStop(0, '#fff8ec'); gr.addColorStop(0.22, '#8f7cc8'); gr.addColorStop(0.44, '#3a2c66'); gr.addColorStop(0.49, '#ffe6c8');
+  gr.addColorStop(0.53, '#4a3a70'); gr.addColorStop(0.7, '#1a1030'); gr.addColorStop(1, '#07040e');
+  g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  const box = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); g.fillRect(x + W, y, w, h); g.fillRect(x - W, y, w, h); };
+  box(20, 40, 70, 46, '#ffffff'); box(150, 22, 40, 70, '#fff4e0'); box(270, 52, 110, 30, '#ffffff'); box(420, 30, 46, 56, '#e8f0ff');
+  box(95, 150, 60, 16, '#ff9f5a'); box(330, 146, 80, 14, '#7fb8ff');
+  skinEnv = new THREE.CanvasTexture(c); skinEnv.colorSpace = THREE.SRGBColorSpace;
   skinEnv.mapping = THREE.EquirectangularReflectionMapping; skinEnv.userData.noRedraw = true;
   return skinEnv;
 }
@@ -7696,7 +7700,7 @@ totalEmissiveRadiance += skHue(fract(skFr * 1.6 + dot(vON, vec3(0.7, 1.3, 0.4)) 
 `;
 function makeSkinMat(skinId, baseColor, empColor) {
   const sk = SKIN[skinId];
-  const mat = new THREE.MeshStandardMaterial({ color: baseColor, flatShading: true, roughness: 0.32, metalness: 0.1, emissive: empColor || '#000000', emissiveIntensity: empColor ? 0.35 : 0 });
+  const mat = new THREE.MeshStandardMaterial({ color: baseColor, flatShading: true, roughness: 0.32, metalness: 0.1, emissive: empColor || '#000000', emissiveIntensity: empColor ? (SKIN[skinId] ? 0.08 : 0.15) : 0 });
   if (!sk) return mat;
   mat.color.set(sk.pat ? '#ffffff' : sk.color || baseColor);
   mat.roughness = sk.rough != null ? sk.rough : 0.32; mat.metalness = sk.metal || 0;
@@ -7738,14 +7742,14 @@ function addSkinExtras(v, sk) {
   }
   if (sk.fx === 'corona') {
     const c = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: '#ffa31a', transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.55 }));
-    c.scale.setScalar(1.25); c.renderOrder = -2; v.g.add(c); v.corona = c;
+    c.scale.setScalar(1.35); c.position.z = -0.5; c.renderOrder = -2; v.g.add(c); v.corona = c;
   }
 }
 function updateSkinFx(v, dt, spawn) {
   if (!v.skin) return;
   const sk = SKIN[v.skin];
   if (v.orbits) v.orbits.forEach(s => { const u = s.userData, a = T * 2.2 + u.ph; s.position.set(Math.cos(a) * u.r, Math.sin(a) * u.r * Math.sin(u.tilt), Math.sin(a) * u.r * Math.cos(u.tilt) + 0.05); s.material.opacity = 0.7 + 0.3 * Math.sin(T * 6 + u.ph); });
-  if (v.corona) { v.corona.material.opacity = 0.42 + 0.14 * Math.sin(T * 2.4 + v.ph); v.corona.scale.setScalar(1.2 + 0.06 * Math.sin(T * 2.4 + v.ph)); }
+  if (v.corona) { v.corona.material.opacity = 0.42 + 0.14 * Math.sin(T * 2.4 + v.ph); v.corona.scale.setScalar(1.32 + 0.06 * Math.sin(T * 2.4 + v.ph)); }
   const U = v.mesh.material.userData.skinU;
   if (sk.fx === 'magma' && U && U.uGlowAmt) U.uGlowAmt.value = sk.glow[2] * (0.75 + 0.35 * Math.sin(T * 2 + v.ph));
   if (sk.fx === 'ghost') { v.mesh.material.opacity = 0.3 + 0.1 * Math.sin(T * 1.8 + v.ph); if (spawn && Math.random() < dt * 2.5) spawn(v.g.position.clone().add(new THREE.Vector3(rand(-0.25, 0.25), 0.2, 0.2)), '#cfefff', 1, 0.2, 0.3, 0.8, -0.5); }
@@ -7853,8 +7857,8 @@ function makeDieView(d, parent = trayGroup) {
     chip.renderOrder = 21; chip.scale.setScalar(0.3); chip.position.set(0.33 - i * 0.66, -0.3, 0.35); g.add(chip);
   });
   let aura = null;
-  if (e1) { aura = new THREE.Sprite(auraMat(ec)); aura.scale.setScalar(1.6); aura.renderOrder = -1; g.add(aura); }
-  if (d.emp && d.emp2) { const a2 = new THREE.Sprite(auraMat(EMPS[d.emp2].color)); a2.scale.setScalar(1.1); a2.position.set(0.25, 0.2, -0.1); a2.renderOrder = -1; g.add(a2); }
+  if (e1) { aura = new THREE.Sprite(auraMat(ec)); aura.scale.setScalar(1.55); aura.position.z = -0.55; aura.renderOrder = -1; g.add(aura); }
+  if (d.emp && d.emp2) { const a2 = new THREE.Sprite(auraMat(EMPS[d.emp2].color)); a2.scale.setScalar(1.15); a2.position.set(0.3, 0.25, -0.6); a2.renderOrder = -1; g.add(a2); }
   if (parent) parent.add(g);
   const v = { g, mesh, badge, aura, d, skin: look.skin, flair: look.flair, rest: new THREE.Quaternion().setFromEuler(new THREE.Euler(...REST[d.type])), slot: new THREE.Vector3(), state: 'idle', ph: rand(0, 6), shown: d.value, lastPos: new THREE.Vector3() };
   addSkinExtras(v, sk);
@@ -9055,7 +9059,7 @@ function updateLookPreview(dt) {
   } else v.g.position.set(0, Math.sin(LP.t * 1.5) * 0.06, 0);
   v.lastPos.copy(v.g.position);
   v.mesh.rotation.x += dt * 0.6; v.mesh.rotation.y += dt * 0.9;
-  if (v.aura) v.aura.material.opacity = 0.55 + 0.25 * Math.sin(T * 3 + v.ph);
+  if (v.aura) v.aura.material.opacity = 0.5 + 0.15 * Math.sin(T * 3 + v.ph);
   updateSkinFx(v, dt, lpSpark);
   for (let i = LP.parts.length - 1; i >= 0; i--) {
     const p = LP.parts[i]; p.life -= dt; const f = p.life / p.max;
@@ -9262,7 +9266,7 @@ function frame(now) {
       if (v.g.position.distanceToSquared(v.lastPos) > 0.0004) trailEmit(v.flair, v.g.position, skinTint(v.skin, v.d.type), dt, spawnSparks);
     }
     v.lastPos.copy(v.g.position);
-    if (v.aura) { v.aura.material.opacity = 0.55 + 0.25 * Math.sin(T * 3 + v.ph); v.aura.scale.setScalar(1.5 + 0.12 * Math.sin(T * 3 + v.ph)); }
+    if (v.aura) { v.aura.material.opacity = 0.5 + 0.15 * Math.sin(T * 3 + v.ph); v.aura.scale.setScalar(1.55 + 0.08 * Math.sin(T * 3 + v.ph)); }
     if (v.state === 'idle' && mode === 'play') {
       v.g.position.y = v.slot.y + Math.sin(T * 2 + v.ph) * 0.035;
       tmpE.set(Math.sin(T * 1.3 + v.ph) * 0.06, Math.sin(T * 0.9 + v.ph) * 0.12, 0); v.mesh.quaternion.copy(v.rest).multiply(tmpQ.setFromEuler(tmpE));
@@ -9274,7 +9278,7 @@ function frame(now) {
     v.orbit.a += dt * v.orbit.sp;
     v.g.position.set(Math.cos(v.orbit.a) * v.orbit.r, v.orbit.y + Math.sin(T + v.orbit.a * 3) * 0.3, Math.sin(v.orbit.a) * v.orbit.r * 0.6);
     v.mesh.rotation.x += dt * 0.7; v.mesh.rotation.y += dt * 0.9;
-    if (v.aura) v.aura.material.opacity = 0.5 + 0.3 * Math.sin(T * 3 + v.ph);
+    if (v.aura) v.aura.material.opacity = 0.45 + 0.15 * Math.sin(T * 3 + v.ph);
   }
   // camera
   shake *= Math.exp(-dt * 9);
