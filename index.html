@@ -223,6 +223,7 @@ function rnd(s) {
 }
 const rint = (s, a, b) => a + Math.floor(rnd(s) * (b - a + 1));
 
+const has = (d, e) => !!d && (d.emp === e || d.emp2 === e);
 const idx = (s, x, y) => y * s.w + x;
 const at = (s, x, y) => (x < 0 || y < 0 || x >= s.w || y >= s.h ? null : s.cells[idx(s, x, y)]);
 const isHole = (s, x, y) => !!s.holes[idx(s, x, y)];
@@ -239,7 +240,7 @@ function createGame(level, dice, seed = (Math.random() * 2 ** 31) | 0) {
     w, h, cells: new Array(w * h).fill(null), holes: new Array(w * h).fill(0), mult: new Array(w * h).fill(0),
     nextId: 1, rs: seed | 0, tray: [], dice: dice.map(d => ({ ...d })),
     rollsLeft: level.rolls, rollsTotal: level.rolls, score: 0,
-    prog: { broken: {}, total: 0, bursts: 0, lines: 0, ice: 0, stone: 0, bombs: 0, anchors: 0, spawners: 0, tiles: 0, maxCombo: 0 },
+    prog: { broken: {}, total: 0, bursts: 0, lines: 0, ice: 0, stone: 0, bombs: 0, anchors: 0, spawners: 0, tiles: 0, crystals: 0, maxCombo: 0 },
     goals: level.goals.map(g => ({ ...g })), status: 'roll', turn: 0,
   };
   for (let r = 0; r < h; r++) {
@@ -250,6 +251,7 @@ function createGame(level, dice, seed = (Math.random() * 2 ** 31) | 0) {
       if (t.length > 1 && t[0] === 'x') { s.mult[i] = 1; t = t.slice(1); }
       if (t === '.') continue;
       if (t === 'A') { s.cells[i] = { id: s.nextId++, k: 'a', v: 0, ice: 0, blaze: 0 }; continue; }
+      if (t === 'C') { s.cells[i] = { id: s.nextId++, k: 'c', v: 0, ice: 0, blaze: 0 }; continue; }
       if (t === '#') { s.holes[i] = 1; continue; }
       if (t === 'S') { s.cells[i] = { id: s.nextId++, k: 's', v: 0, ice: 0, blaze: 0 }; continue; }
       if (t === 'w') { s.cells[i] = { id: s.nextId++, k: 'w', v: 0, ice: 0, blaze: 0 }; continue; }
@@ -268,6 +270,7 @@ function createGame(level, dice, seed = (Math.random() * 2 ** 31) | 0) {
     if (g.t === 'bomb' && !g.n) g.n = s.cells.filter(c => c && c.bomb).length;
     if (g.t === 'anchor' && !g.n) g.n = s.cells.filter(c => c && c.k === 'a').length;
     if (g.t === 'spawner' && !g.n) g.n = s.cells.filter(c => c && c.spawner).length;
+    if (g.t === 'crystal' && !g.n) g.n = s.cells.filter(c => c && c.k === 'c').length;
   }
   s.initialBlocks = s.cells.filter(Boolean).length;
   gravity(s);
@@ -304,22 +307,22 @@ function roll(s) {
   s.rollsLeft--; s.turn++;
   s.tray = s.dice.map((d, i) => {
     const sides = SIDES[d.type];
-    const lo = d.emp === 'loaded' ? Math.min(2, sides) : 1;
-    return { uid: s.turn * 100 + i, dieId: d.id, type: d.type, sides, emp: d.emp || null, value: rint(s, lo, sides), used: false, placed: false };
+    const lo = has(d, 'loaded') ? Math.min(2, sides) : 1;
+    return { uid: s.turn * 100 + i, dieId: d.id, type: d.type, sides, emp: d.emp || null, emp2: d.emp2 || null, value: rint(s, lo, sides), used: false, placed: false };
   });
   updateStatus(s);
   return true;
 }
 function rerollDie(s, ti) {
   const d = s.tray[ti];
-  if (!d || d.placed || d.emp !== 'reroll' || d.used) return false;
+  if (!d || d.placed || !has(d, 'reroll') || d.used) return false;
   d.value = rint(s, 1, d.sides); d.used = true;
   updateStatus(s);
   return true;
 }
 function flipDie(s, ti) {
   const d = s.tray[ti];
-  if (!d || d.placed || d.emp !== 'mirror') return false;
+  if (!d || d.placed || !has(d, 'mirror')) return false;
   d.value = d.sides + 1 - d.value;
   updateStatus(s);
   return true;
@@ -348,23 +351,23 @@ function canPlace(s, die, tgt, value = die.value) {
   if (tgt.kind === 'drop') return landY(s, tgt.x) === tgt.y;
   const c = at(s, tgt.x, tgt.y);
   if (!c || c.k !== 'n' || c.ice) return false;
-  if (die.emp === 'heavy') return true;
-  if (die.emp === 'hex') return c.v - value >= 0;
+  if (has(die, 'heavy')) return true;
+  if (has(die, 'hex')) return c.v - value >= 0;
   return c.v + value <= MAX_V;
 }
 function stackResult(s, die, tgt, value = die.value) {
   if (tgt.kind === 'drop') return value;
   const c = at(s, tgt.x, tgt.y);
   if (!c) return value;
-  return die.emp === 'heavy' ? value : die.emp === 'hex' ? c.v - value : c.v + value;
+  return has(die, 'heavy') ? value : has(die, 'hex') ? c.v - value : c.v + value;
 }
 function hasLegalMove(s, die) {
   for (let x = 0; x < s.w; x++) if (landY(s, x) >= 0) return true;
-  const vals = die.emp === 'mirror' ? [die.value, die.sides + 1 - die.value] : [die.value];
+  const vals = has(die, 'mirror') ? [die.value, die.sides + 1 - die.value] : [die.value];
   for (const c of s.cells) {
     if (!c || c.k !== 'n' || c.ice) continue;
-    if (die.emp === 'heavy') return true;
-    for (const v of vals) if (die.emp === 'hex' ? c.v - v >= 0 : c.v + v <= MAX_V) return true;
+    if (has(die, 'heavy')) return true;
+    for (const v of vals) if (has(die, 'hex') ? c.v - v >= 0 : c.v + v <= MAX_V) return true;
   }
   return false;
 }
@@ -378,7 +381,8 @@ function place(s, ti, tgt, value) {
   const steps = [];
   if (tgt.kind === 'drop') {
     const sp = splitPlan(s, die, tgt, value);
-    const b = die.emp === 'wild' ? { id: s.nextId++, k: 'w', v: 0, ice: 0, blaze: 0 } : { id: s.nextId++, k: 'n', v: sp ? sp.a : value, ice: 0, blaze: die.emp === 'blazing' ? 1 : 0 };
+    const b = has(die, 'wild') ? { id: s.nextId++, k: 'w', v: 0, ice: 0, blaze: 0 } : { id: s.nextId++, k: 'n', v: sp ? sp.a : value, ice: 0, blaze: has(die, 'blazing') ? 1 : 0 };
+    if (has(die, 'chain') && b.k === 'n') b.chain = 1;
     s.cells[idx(s, tgt.x, tgt.y)] = b;
     let extra = null;
     if (sp) { const y2 = landY(s, sp.x2); const b2 = { id: s.nextId++, k: 'n', v: sp.b, ice: 0, blaze: 0 }; s.cells[idx(s, sp.x2, y2)] = b2; extra = { id: b2.id, x: sp.x2, y: y2, v: sp.b }; }
@@ -387,7 +391,8 @@ function place(s, ti, tgt, value) {
     const b = at(s, tgt.x, tgt.y);
     const from = b.v;
     b.v = stackResult(s, die, tgt, value);
-    if (die.emp === 'blazing') b.blaze = 1;
+    if (has(die, 'blazing')) b.blaze = 1;
+    if (has(die, 'chain')) b.chain = 1;
     const vanish = b.v === 0;
     steps.push({ type: 'place', mode: 'stack', id: b.id, x: tgt.x, y: tgt.y, from, v: b.v, die, vanish });
     if (vanish) {
@@ -399,8 +404,8 @@ function place(s, ti, tgt, value) {
       s.score += collected.length * 300;
     }
   }
-  if (die.emp === 'echo' && !die.echo) {
-    s.tray.push({ uid: die.uid * 10 + 7, dieId: die.dieId, type: die.type, sides: die.sides, emp: null, value, used: false, placed: false, echo: true });
+  if (has(die, 'echo') && !die.echo) {
+    s.tray.push({ uid: die.uid * 10 + 7, dieId: die.dieId, type: die.type, sides: die.sides, emp: null, emp2: null, value, used: false, placed: false, echo: true });
     steps[0].echo = s.tray.length - 1;
   }
   steps.push(...resolve(s));
@@ -410,7 +415,7 @@ function place(s, ti, tgt, value) {
 
 // Split: a drop of value >= 2 becomes two blocks (ceil half here, floor half in a neighbor column)
 function splitPlan(s, die, tgt, value) {
-  if (die.emp !== 'split' || tgt.kind !== 'drop' || value < 2) return null;
+  if (!has(die, 'split') || tgt.kind !== 'drop' || value < 2) return null;
   for (const dx of [1, -1]) { const x2 = tgt.x + dx; if (x2 >= 0 && x2 < s.w && landY(s, x2) >= 0) return { a: Math.ceil(value / 2), b: Math.floor(value / 2), x2 }; }
   return null;
 }
@@ -544,7 +549,7 @@ function resolve(s) {
       for (const [dx, dy] of N4) {
         const nx = x + dx, ny = y + dy, n = at(s, nx, ny); if (!n || n.k === 'a') continue;
         const nk = key(nx, ny);
-        if (n.k === 's') clear.set(nk, { x: nx, y: ny, c: n, mult: 1 });
+        if (n.k === 's' || n.k === 'c') clear.set(nk, { x: nx, y: ny, c: n, mult: 1 });
         else dec.set(nk, { x: nx, y: ny, c: n });
       }
     }
@@ -577,6 +582,18 @@ function resolve(s) {
         if (n.bomb && !blasted.has(nk)) bq.push(ent);
       }
     }
+    // Chain: a cleared chain block knocks 1 off every other block showing its number
+    const chains = [];
+    for (const e of [...clear.values()]) {
+      if (!e.c.chain || e.c.k !== 'n') continue;
+      const to = [];
+      for (let yy = 0; yy < s.h; yy++) for (let xx = 0; xx < s.w; xx++) {
+        const n = at(s, xx, yy), nk = key(xx, yy);
+        if (!n || n.k !== 'n' || n.v !== e.c.v || clear.has(nk)) continue;
+        dec.set(nk, { x: xx, y: yy, c: n }); to.push([xx, yy]);
+      }
+      if (to.length) chains.push({ from: [e.x, e.y], v: e.c.v, to });
+    }
     for (const k of clear.keys()) { dec.delete(k); thaw.delete(k); }
     // apply decrements
     const decs = [];
@@ -584,6 +601,11 @@ function resolve(s) {
       const from = c.v; c.v = Math.max(0, c.v - 1);
       decs.push({ id: c.id, x, y, from, v: c.v });
       if (c.v === 0) clear.set(key(x, y), { x, y, c, mult: 1 });
+    }
+    // crystals break when anything next to them clears
+    for (const e of [...clear.values()]) {
+      if (e.c.k === 'c') continue;
+      for (const [dx, dy] of N4) { const nx = e.x + dx, ny = e.y + dy, n = at(s, nx, ny); if (n && n.k === 'c' && !clear.has(key(nx, ny))) clear.set(key(nx, ny), { x: nx, y: ny, c: n, mult: 1 }); }
     }
     // apply thaws
     const thaws = [];
@@ -596,11 +618,12 @@ function resolve(s) {
       if (c.spawner) s.prog.spawners++;
       if (tile > 1) s.prog.tiles++;
       if (c.k === 's') { s.prog.stone++; pts += 50 * tile; }
+      else if (c.k === 'c') { s.prog.crystals++; pts += 100 * tile; }
       else if (c.k === 'w') pts += 30 * tile;
       else { s.prog.broken[c.v] = (s.prog.broken[c.v] || 0) + 1; pts += Math.round(c.v * 10 * mult * tile); }
       s.prog.total++;
       s.cells[idx(s, x, y)] = null;
-      cleared.push({ id: c.id, x, y, v: c.v, k: c.k, ice: c.ice, blaze: c.blaze, bomb: c.bomb || 0, tile: tile > 1 });
+      cleared.push({ id: c.id, x, y, v: c.v, k: c.k, ice: c.ice, blaze: c.blaze, bomb: c.bomb || 0, chain: c.chain || 0, tile: tile > 1 });
     }
     s.prog.bursts += bursts.length; s.prog.lines += lines.length;
     s.prog.maxCombo = Math.max(s.prog.maxCombo, combo);
@@ -609,7 +632,7 @@ function resolve(s) {
     pts += collected.length * 300;
     const gained = pts * combo;
     s.score += gained;
-    steps.push({ type: 'resolve', combo, groups, lines, bursts, blazes, blasts, decs, thaws, cleared, moves, collected, moves2, gained });
+    steps.push({ type: 'resolve', combo, groups, lines, bursts, blazes, blasts, chains, decs, thaws, cleared, moves, collected, moves2, gained });
   }
   return steps;
 }
@@ -630,6 +653,7 @@ function goalProgress(s) {
       case 'anchor': cur = s.prog.anchors; break;
       case 'spawner': cur = s.prog.spawners; break;
       case 'tile': cur = s.prog.tiles; break;
+      case 'crystal': cur = s.prog.crystals; break;
       case 'score': cur = s.score; break;
       case 'combo': cur = s.prog.maxCombo; break;
     }
@@ -669,7 +693,7 @@ function preview(s, ti, tgt, value) {
   const sp = splitPlan(c, die, tgt, value);
   let extra = null;
   if (tgt.kind === 'drop') {
-    c.cells[idx(c, tgt.x, tgt.y)] = die.emp === 'wild' ? { id: -1, k: 'w', v: 0, ice: 0, blaze: 0 } : { id: -1, k: 'n', v: sp ? sp.a : value, ice: 0, blaze: 0 };
+    c.cells[idx(c, tgt.x, tgt.y)] = has(die, 'wild') ? { id: -1, k: 'w', v: 0, ice: 0, blaze: 0 } : { id: -1, k: 'n', v: sp ? sp.a : value, ice: 0, blaze: 0 };
     if (sp) { const y2 = landY(c, sp.x2); c.cells[idx(c, sp.x2, y2)] = { id: -2, k: 'n', v: sp.b, ice: 0, blaze: 0 }; extra = { x: sp.x2, y: y2, v: sp.b }; }
   }
   else { const b = at(c, tgt.x, tgt.y); b.v = result; }
@@ -680,11 +704,11 @@ function preview(s, ti, tgt, value) {
     else for (let y = 0; y < c.h; y++) { const b = at(c, L.i, y); if (b) ids.add(b.id); }
   }
   for (const [x, y] of findBursts(c)) ids.add(at(c, x, y).id);
-  const shown = die.emp === 'wild' && tgt.kind === 'drop' ? '★' : sp ? sp.a : result;
-  return { ok, result: shown, ids: [...ids], burst: result === MAX_V && !sp, extra, wild: die.emp === 'wild' && tgt.kind === 'drop' };
+  const shown = has(die, 'wild') && tgt.kind === 'drop' ? '★' : sp ? sp.a : result;
+  return { ok, result: shown, ids: [...ids], burst: result === MAX_V && !sp, extra, wild: has(die, 'wild') && tgt.kind === 'drop' };
 }
 
-return { SIDES, MAX_V, rnd, idx, at, isHole, parseLevel, createGame, clone, roll, rerollDie, flipDie, unplaced, landY, targetFor, canPlace, stackResult, hasLegalMove, place, splitPlan, collectAnchors, gravity, findMatches, findLines, triggeredLines, findBursts, resolve, goalProgress, goalsMet, updateStatus, finalScore, starsFor, preview };
+return { SIDES, MAX_V, rnd, has, idx, at, isHole, parseLevel, createGame, clone, roll, rerollDie, flipDie, unplaced, landY, targetFor, canPlace, stackResult, hasLegalMove, place, splitPlan, collectAnchors, gravity, findMatches, findLines, triggeredLines, findBursts, resolve, goalProgress, goalsMet, updateStatus, finalScore, starsFor, preview };
 })();
 // ---- levels ----
 // AUTO-GENERATED by tools/gen.mjs. Do not edit by hand.
@@ -1727,6 +1751,498 @@ const GENERATED = [
    "x8 . i4 5 7 6"
   ],
   "bot": 48
+ },
+ {
+  "key": "g7-2-702000",
+  "chapter": 7,
+  "slot": 2,
+  "gen": true,
+  "tier": "normal",
+  "name": "Amethyst Cavern",
+  "rolls": 4,
+  "star3": 3200,
+  "tip": "Clear blocks touching a crystal to break it free.",
+  "goals": [
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "any",
+    "n": 22
+   }
+  ],
+  "rows": [
+   ". . . . .",
+   ". . . . .",
+   "12 . . . 7",
+   "C . . . 10",
+   "C . 2 . 8",
+   "10 . C . 7",
+   "12 . 7 1 2"
+  ],
+  "bot": 74
+ },
+ {
+  "key": "g7-3-703000",
+  "chapter": 7,
+  "slot": 3,
+  "gen": true,
+  "tier": "normal",
+  "name": "Gleaming Grotto",
+  "rolls": 4,
+  "star3": 2500,
+  "tip": "Clear blocks touching a crystal to break it free.",
+  "goals": [
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "ice"
+   },
+   {
+    "t": "any",
+    "n": 28
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . .",
+   ". 5 10 C . .",
+   ". 11 2 1 . 3",
+   ". C C i4 . i7"
+  ],
+  "bot": 65
+ },
+ {
+  "key": "g7-4-707039",
+  "chapter": 7,
+  "slot": 4,
+  "gen": true,
+  "tier": "hard",
+  "name": "Gleaming Chamber",
+  "rolls": 4,
+  "star3": 3700,
+  "tip": "Clear blocks touching a crystal to break it free.",
+  "goals": [
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "lines",
+    "n": 5
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . .",
+   "12 . . . . .",
+   "C . 10 . . C",
+   "3 . 12 10 . 4",
+   "C . 2 9 C 3"
+  ],
+  "bot": 37
+ },
+ {
+  "key": "g7-5-705000",
+  "chapter": 7,
+  "slot": 5,
+  "gen": true,
+  "tier": "breather",
+  "name": "Quartz Hollow",
+  "rolls": 5,
+  "star3": 1200,
+  "tip": "Clear blocks touching a crystal to break it free.",
+  "goals": [
+   {
+    "t": "crystal"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   "3 . . . . .",
+   "8 . . . . 8",
+   "C 4 . . . 1",
+   "4 10 . 6 . 1",
+   "11 2 4 3 . 11"
+  ],
+  "bot": 100
+ },
+ {
+  "key": "g7-6-706000",
+  "chapter": 7,
+  "slot": 6,
+  "gen": true,
+  "tier": "normal",
+  "name": "Amethyst Cluster",
+  "rolls": 4,
+  "star3": 2800,
+  "tip": "Clear blocks touching a crystal to break it free.",
+  "goals": [
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "anchor"
+   },
+   {
+    "t": "any",
+    "n": 19
+   }
+  ],
+  "rows": [
+   ". . . . .",
+   ". . . . .",
+   ". . . . C",
+   ". . . . C",
+   "A . . . 8",
+   "5 . 10 . 2",
+   "6 10 C . 3"
+  ],
+  "bot": 78
+ },
+ {
+  "key": "g7-7-707000",
+  "chapter": 7,
+  "slot": 7,
+  "gen": true,
+  "tier": "normal",
+  "name": "Gleaming Vein",
+  "rolls": 4,
+  "star3": 3400,
+  "tip": "Clear blocks touching a crystal to break it free.",
+  "goals": [
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "tile",
+    "n": 3
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   "# . . . 12 #",
+   "# # . . # #",
+   "6 12 . . 11 x.",
+   "C 9 . 2 xC .",
+   "12 3 6 12 8 ."
+  ],
+  "bot": 81
+ },
+ {
+  "key": "g7-8-708000",
+  "chapter": 7,
+  "slot": 8,
+  "gen": true,
+  "tier": "normal",
+  "name": "Shining Vein",
+  "rolls": 4,
+  "star3": 2300,
+  "tip": "Clear blocks touching a crystal to break it free.",
+  "goals": [
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "spawner"
+   },
+   {
+    "t": "any",
+    "n": 22
+   }
+  ],
+  "rows": [
+   ". . . . .",
+   ". . . . .",
+   ". . . . 4",
+   ". 9 . . C",
+   ". C 2 . 4",
+   ". 1 4 . 4",
+   ". C 5 . g9"
+  ],
+  "bot": 65
+ },
+ {
+  "key": "g7-9-711026",
+  "chapter": 7,
+  "slot": 9,
+  "gen": true,
+  "tier": "hard",
+  "name": "Prism Chamber",
+  "rolls": 4,
+  "star3": 3000,
+  "tip": "Ice takes two matches: the first thaws it.",
+  "goals": [
+   {
+    "t": "any",
+    "n": 32
+   },
+   {
+    "t": "ice"
+   },
+   {
+    "t": "crystal"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . .",
+   "2 . . . . .",
+   "10 4 . . . .",
+   "8 i6 5 C . C",
+   "C C 11 8 . 7"
+  ],
+  "bot": 50
+ },
+ {
+  "key": "g8-2-802000",
+  "chapter": 8,
+  "slot": 2,
+  "gen": true,
+  "tier": "normal",
+  "name": "Dim Flats",
+  "rolls": 4,
+  "star3": 3600,
+  "tip": "Clear blocks touching a crystal to break it free.",
+  "goals": [
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "bomb"
+   },
+   {
+    "t": "any",
+    "n": 22
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   "10 . . . . .",
+   "1 . . . 8 b12:4",
+   "10 . . . b9:3 C",
+   "8 . C C 5 6"
+  ],
+  "bot": 79
+ },
+ {
+  "key": "g8-3-803000",
+  "chapter": 8,
+  "slot": 3,
+  "gen": true,
+  "tier": "normal",
+  "name": "Choking Storm",
+  "rolls": 4,
+  "star3": 3700,
+  "tip": "Clear blocks touching a crystal to break it free.",
+  "goals": [
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "any",
+    "n": 22
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . C",
+   ". . . 7 . b2:4",
+   ". 11 . b5:5 C C",
+   ". 12 . 12 7 12"
+  ],
+  "bot": 60
+ },
+ {
+  "key": "g8-4-804000",
+  "chapter": 8,
+  "slot": 4,
+  "gen": true,
+  "tier": "hard",
+  "name": "Grey Flats",
+  "rolls": 4,
+  "star3": 3600,
+  "tip": "Clear blocks touching a crystal to break it free.",
+  "goals": [
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "bomb"
+   },
+   {
+    "t": "any",
+    "n": 25
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . .",
+   "C . 5 . . b3:5",
+   "3 C b6:4 . . C",
+   "C 5 8 b7:3 . 6"
+  ],
+  "bot": 41
+ },
+ {
+  "key": "g8-5-805000",
+  "chapter": 8,
+  "slot": 5,
+  "gen": true,
+  "tier": "breather",
+  "name": "Grey Drift",
+  "rolls": 5,
+  "star3": 1600,
+  "tip": "Clear blocks touching a crystal to break it free.",
+  "goals": [
+   {
+    "t": "crystal"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . .",
+   ". 9 . . . .",
+   ". 2 C . . .",
+   "4 3 5 1 7 .",
+   "b4:3 2 10 C 3 ."
+  ],
+  "bot": 100
+ },
+ {
+  "key": "g8-6-806000",
+  "chapter": 8,
+  "slot": 6,
+  "gen": true,
+  "tier": "normal",
+  "name": "Smoldering Plume",
+  "rolls": 4,
+  "star3": 3900,
+  "tip": "Stones break from a burst next to them or a line bonus through their row.",
+  "goals": [
+   {
+    "t": "stone"
+   },
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "any",
+    "n": 28
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". 2 . . . .",
+   ". S . . . .",
+   ". b6:3 . 10 S .",
+   ". 11 . 12 11 .",
+   "2 C . 2 C b4:3"
+  ],
+  "bot": 68
+ },
+ {
+  "key": "g8-7-807000",
+  "chapter": 8,
+  "slot": 7,
+  "gen": true,
+  "tier": "normal",
+  "name": "Smoldering Haze",
+  "rolls": 6,
+  "star3": 3400,
+  "tip": "Match bombs before their timers run out.",
+  "goals": [
+   {
+    "t": "bomb"
+   },
+   {
+    "t": "crystal"
+   }
+  ],
+  "rows": [
+   ". . . . .",
+   ". . . . .",
+   "C . . . 10",
+   "b11:3 . 8 . C",
+   "b7:4 . 3 . 7",
+   "# . 7 7 #",
+   "# . 4 C #"
+  ],
+  "bot": 72
+ },
+ {
+  "key": "g8-8-808000",
+  "chapter": 8,
+  "slot": 8,
+  "gen": true,
+  "tier": "normal",
+  "name": "Smoldering Storm",
+  "rolls": 4,
+  "star3": 4600,
+  "tip": "Stack a block to exactly 20 to burst it.",
+  "goals": [
+   {
+    "t": "burst",
+    "n": 5
+   },
+   {
+    "t": "crystal"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   "8 . . . . .",
+   "5 . 3 . . 14",
+   "8 11 8 . . 3",
+   "C 10 12 . . 7",
+   "9 4 C . . b2:4"
+  ],
+  "bot": 71
+ },
+ {
+  "key": "g8-9-811026",
+  "chapter": 8,
+  "slot": 9,
+  "gen": true,
+  "tier": "hard",
+  "name": "Charred Plume",
+  "rolls": 4,
+  "star3": 3500,
+  "tip": "Match bombs before their timers run out.",
+  "goals": [
+   {
+    "t": "bomb"
+   },
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "any",
+    "n": 25
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . .",
+   "C . . . . .",
+   "b4:4 . . . . .",
+   "3 b11:5 8 b1:4 . i9",
+   "C 4 C 4 . 11"
+  ],
+  "bot": 43
  }
 ];
 
@@ -2067,6 +2583,60 @@ const HAND_LEVELS = [
       '1 7 . 9 x4 2',
     ],
   },
+  {
+    key: 'geode', name: 'Geode', rolls: 4, star3: 1000, teach: 'crystal', reward: { emp: 'chain' },
+    tip: 'Make a match right next to each crystal to break it free.',
+    goals: [{ t: 'crystal' }],
+    rows: [
+      '. . . . .',
+      '. . . . .',
+      '. . . . .',
+      'C . . C .',
+      '3 . . 5 .',
+      '3 6 . 2 5',
+    ],
+  },
+  {
+    key: 'crystalheart', name: 'Crystal Heart', rolls: 4, star3: 3600, reward: { die: 'd20' },
+    tip: 'Boss level! Free every crystal and crack the ice.',
+    goals: [{ t: 'crystal' }, { t: 'ice' }, { t: 'lines', n: 5 }],
+    rows: [
+      '. . . . . .',
+      '. . . . . .',
+      '. C . . C .',
+      '. 4 . . 7 .',
+      'C 2 . 6 3 C',
+      '5 i7 . 2 i4 8',
+      '2 6 . 9 1 3',
+    ],
+  },
+  {
+    key: 'ashfall', name: 'Ashfall', rolls: 4, star3: 1800, reward: { slot2: true },
+    tip: 'Bomb blasts break crystals too. Beat this to unlock a second power slot on every die!',
+    goals: [{ t: 'crystal' }, { t: 'bomb' }],
+    rows: [
+      '. . . . . .',
+      '. . . . . .',
+      '. . . . . .',
+      '. C . . . .',
+      '. 3 . C . .',
+      'b4:4 3 . 5 b5:4 .',
+    ],
+  },
+  {
+    key: 'cinderthrone', name: 'Cinder Throne', rolls: 4, star3: 4100, reward: { emp: 'chain' },
+    tip: 'Boss level! Bombs and crystals everywhere.',
+    goals: [{ t: 'crystal' }, { t: 'bomb' }, { t: 'any', n: 31 }],
+    rows: [
+      '. . . . . .',
+      '. . . . . .',
+      '. . . . . .',
+      'C . . . . C',
+      'b6:3 C . . C b3:4',
+      '4 9 . 7 2 5',
+      '1 b8:5 . 3 b2:4 6',
+    ],
+  },
 ];
 
 // ===== chapters =====
@@ -2083,6 +2653,10 @@ const CHAPTERS = [
     plan: ['anchorsaway', 'gearup', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'clockcore'] },
   { n: 6, name: 'Glacier Aurora', env: 'glacier', variant: 'aurora', names: 'aurora', blurb: 'Gold tiles and cascades under the northern lights.',
     plan: ['northernlights', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'auroracrown'] },
+  { n: 7, name: 'Crystal Caves', env: 'crystal', variant: 'amethyst', names: 'crystal', blurb: 'Glowing crystals break when anything next to them clears.',
+    plan: ['geode', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'crystalheart'] },
+  { n: 8, name: 'Volcano Ash Storm', env: 'volcano', variant: 'ash', names: 'ash', blurb: 'Bombs and crystals in a storm of ash. Two powers per die!',
+    plan: ['ashfall', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'cinderthrone'] },
 ];
 // levels parked for later chapters
 const PARKED = [];
@@ -2108,6 +2682,7 @@ const EMPS = {
   mirror: { name: 'Mirror', color: '#b57bff', desc: 'Tap to flip to the opposite face (a 2 on a D6 becomes 5).', price: 25 },
   split: { name: 'Split', color: '#2fd6a0', desc: 'Dropped in an empty spot, it splits into two blocks of half its value, side by side.', price: 30 },
   hex: { name: 'Hex', color: '#5b6cff', desc: 'Subtracts from a block instead of adding. Hex a block to exactly 0 and it dissolves.', price: 30 },
+  chain: { name: 'Chain', color: '#3fa9ff', desc: 'When its block clears, lightning knocks 1 off every other block with that number.', price: 40 },
   echo: { name: 'Echo', color: '#a8e05f', desc: 'After you place it, a copy of its number appears in your tray to place again.', price: 40 },
   wild: { name: 'Wild', color: '#ff4fd8', desc: 'Dropped in an empty spot, it becomes a ★ block that matches any number.', price: 40 },
 };
@@ -2168,7 +2743,10 @@ function loadProfile() {
 let P = loadProfile();
 function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(P)); } catch (e) { } }
 const dieById = id => P.dice.find(d => d.id === id);
-const empAvail = e => (P.emps[e] || 0) - P.dice.filter(d => d.emp === e).length;
+const empAvail = e => (P.emps[e] || 0) - P.dice.filter(d => d.emp === e).length - P.dice.filter(d => d.emp2 === e).length;
+const EXCLUSIVE = [['heavy', 'hex'], ['wild', 'split']];
+const empsOf = d => [d.emp, d.emp2].filter(Boolean);
+const empChips = d => empsOf(d).map(e => `<span class="emp" style="background:${EMPS[e].color}">${EMPS[e].name}</span>`).join('');
 const levelIndex = key => LEVELS.findIndex(l => l.key === key);
 const levelUnlocked = i => i === 0 || (P.stars[LEVELS[i].key] || 0) > 0 || (P.stars[LEVELS[i - 1].key] || 0) > 0;
 
@@ -2227,6 +2805,8 @@ const sfx = {
   win: () => [523, 659, 784, 1046, 1318].forEach((f, i) => tone({ f, type: 'triangle', dur: 0.35, vol: 0.16, delay: i * 0.08 })),
   lose: () => [392, 330, 262, 196].forEach((f, i) => tone({ f, type: 'triangle', dur: 0.4, vol: 0.12, delay: i * 0.14 })),
   whoosh: () => noise({ dur: 0.3, vol: 0.2, freq: 400, f2: 2600, q: 2 }),
+  zap: () => { tone({ f: 1800, f2: 400, type: 'sawtooth', dur: 0.18, vol: 0.06 }); noise({ dur: 0.15, vol: 0.15, freq: 5000, type: 'highpass' }); },
+  shine: () => [1568, 2093, 2637].forEach((f, i) => tone({ f, type: 'triangle', dur: 0.3, vol: 0.08, delay: i * 0.04 })),
   fizz: () => noise({ dur: 0.25, vol: 0.12, freq: 1200, f2: 300, q: 1 }),
 };
 // tiny generative music loop
@@ -2418,7 +2998,17 @@ ENVS.clockwork = {
   frame: '#c9a24a', gem: '#3fd0ff', leaf: ['#c9a24a', '#a9822e', '#e0bb5a'], trunk: '#7a5a3a', rock: '#8c7c6c', flower: ['#ffd23f', '#3fd0ff', '#c9a24a'],
   particle: '#ffffff', fall: -0.3, drift: 0.15, psize: 0.26, felt: '#3a2a40', tag: '#c98a2e', sun: '#fff0d0', sunI: 2.2, hemiI: 1.5,
 };
+ENVS.crystal = {
+  env: 'crystal', props: 'crystal', bgTop: '#1a0f3a', bgBottom: '#5a2f8a', grass: '#3a2f55', dirt: '#4a3a6a', dirtDark: '#2a1f45', panel: '#1f1638', cell: '#2f2452', cellEdge: '#8a5cff',
+  frame: '#6a4aa0', gem: '#c58bff', leaf: ['#c58bff', '#7ef0ff', '#ff8bd8'], trunk: '#e6dcff', rock: '#5a4a7a', flower: ['#c58bff', '#7ef0ff', '#ffd6ff'],
+  particle: '#d7b8ff', fall: -0.08, firefly: true, psize: 0.18, felt: '#2a1f45', tag: '#8a5cff', sun: '#d8c8ff', sunI: 1.6, hemiI: 1.3, hemiSky: '#c8b8ff',
+};
 const VARIANTS = {
+  crystal: {
+    amethyst: { label: 'Amethyst' },
+    emerald: { label: 'Emerald', bgTop: '#062a22', bgBottom: '#1f7a5a', leaf: ['#4fe0a0', '#a8ffd8', '#2fbf8a'], particle: '#a8ffd8', cellEdge: '#4fe0a0', gem: '#4fe0a0', tag: '#2fbf8a', hemiSky: '#c8ffe8' },
+    glow: { label: 'Glow', bgTop: '#0a0a1a', bgBottom: '#24124a', leaf: ['#ff8bd8', '#7ef0ff', '#ffe066'], particle: '#ffe066', tag: '#ff8bd8', sunI: 1.2 },
+  },
   clockwork: {
     brass: { label: 'Brass day' },
     neon: { label: 'Neon midnight', bgTop: '#120a2e', bgBottom: '#3a1a5a', grass: '#3a3050', dirt: '#2a2040', dirtDark: '#1a1430', frame: '#7a5cff', gem: '#ff3fd0', leaf: ['#7a5cff', '#3fd0ff', '#ff3fd0'], particle: '#3fd0ff', fall: 0.05, firefly: true, sunI: 1.3, hemiI: 1.0, hemiSky: '#b9a8ff', tag: '#ff3fd0' },
@@ -2456,7 +3046,19 @@ function addMesh(geo, mat, parent, pos, opts = {}) {
   m.castShadow = opts.cast !== false; m.receiveShadow = opts.receive !== false;
   parent.add(m); return m;
 }
-function decorProp(parent, x, z, s, th) { return th.props === 'volcano' ? basalt(parent, x, z, s, th) : th.props === 'clockwork' ? gearProp(parent, x, z, s, th) : tree(parent, x, z, s, th); }
+function crystalProp(parent, x, z, s, th) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.scale.setScalar(s);
+  const n = 3 + Math.floor(Math.random() * 3);
+  for (let i = 0; i < n; i++) {
+    const c = th.leaf[i % th.leaf.length], h = rand(0.5, 1.5);
+    const m = addMesh(new THREE.ConeGeometry(rand(0.12, 0.22), h, 5), flatMat(c, { emissive: c, emissiveIntensity: 0.9, roughness: 0.15, transparent: true, opacity: 0.9 }), g, [rand(-0.3, 0.3), h / 2 - 0.05, rand(-0.3, 0.3)], { rot: [rand(-0.35, 0.35), rand(0, 3), rand(-0.35, 0.35)] });
+    world.props.push({ o: m, kind: 'glow', ph: rand(0, 6) });
+  }
+  const stem = addMesh(new THREE.CylinderGeometry(0.05, 0.07, 0.35, 5), flatMat(th.trunk), g, [0.45, 0.17, 0.2]);
+  addMesh(new THREE.SphereGeometry(0.2, 6, 3, 0, Math.PI * 2, 0, Math.PI / 2), flatMat(th.leaf[1], { emissive: th.leaf[1], emissiveIntensity: 1.2 }), g, [0.45, 0.33, 0.2]);
+  parent.add(g); return g;
+}
+function decorProp(parent, x, z, s, th) { return th.props === 'crystal' ? crystalProp(parent, x, z, s, th) : th.props === 'volcano' ? basalt(parent, x, z, s, th) : th.props === 'clockwork' ? gearProp(parent, x, z, s, th) : tree(parent, x, z, s, th); }
 function gearMesh(r, teeth, color, depth = 0.12) {
   const g = new THREE.Group(), m = flatMat(color, { metalness: 0.55, roughness: 0.35 });
   const disc = new THREE.Mesh(new THREE.CylinderGeometry(r, r, depth, Math.max(8, teeth)), m); disc.rotation.x = Math.PI / 2; disc.castShadow = true; g.add(disc);
@@ -2535,6 +3137,11 @@ function buildWorld(th, bw, bh, nDice = 3) {
     const x = rand(-R + 0.4, R - 0.4), z = rand(0.75, 1.7);
     const fl = addMesh(new THREE.TetrahedronGeometry(rand(0.05, 0.09), 0), flatMat(th.flower[i % th.flower.length], { emissive: th.flower[i % th.flower.length], emissiveIntensity: 0.15 }), W, [x, 0.06, z], { rot: [rand(0, 3), rand(0, 3), 0], cast: false });
     world.props.push({ o: fl, kind: 'spin', ph: rand(0, 6) });
+  }
+  if (th.props === 'crystal') {
+    [[-8, -16, 9], [7, -18, 12], [-3, -22, 14], [11, -14, 7]].forEach(([x, z, h], i) => {
+      const c = th.leaf[i % 3]; addMesh(new THREE.ConeGeometry(h * 0.18, h, 5), flatMat(c, { emissive: c, emissiveIntensity: 0.6, roughness: 0.2 }), W, [x, h / 2 - 3, z], { cast: false, receive: false, rot: [0, rand(0, 3), rand(-0.1, 0.1)] });
+    });
   }
   if (th.props === 'clockwork') {
     [[-7, 7, -16, 3.2, 0.12], [8, 9, -18, 4, -0.08], [3, 12, -22, 2.4, 0.18]].forEach(([x, y, z, r, sp]) => {
@@ -2720,6 +3327,12 @@ function spawnLaser(line) {
   else { m.position.set(line.i - (S.w - 1) / 2, S.h / 2, 0.55); m.scale.set(0.35, 0.01, 1); m.userData = { axis: 'y', len: S.h + 0.4 }; }
   fxGroup.add(m); parts.push({ o: m, kind: 'laser', life: 0.45, max: 0.45 });
 }
+function spawnBolt(a, b, color = '#7ef0ff') {
+  const N = 9, pos = new Float32Array(N * 3), geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const line = new THREE.Line(geo, new THREE.LineBasicMaterial({ color, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+  line.userData = { a: a.clone().setZ(0.6), b: b.clone().setZ(0.6) }; line.renderOrder = 8; fxGroup.add(line);
+  parts.push({ o: line, kind: 'bolt', life: 0.45, max: 0.45 });
+}
 function updateParts(dt) {
   for (let i = parts.length - 1; i >= 0; i--) {
     const p = parts[i]; p.life -= dt; const k = 1 - p.life / p.max;
@@ -2733,6 +3346,10 @@ function updateParts(dt) {
       else o.scale.setScalar(p.s0 * clamp(p.life * 3, 0, 1));
     } else if (p.kind === 'ring') {
       o.scale.setScalar(0.3 + E.outCubic(k) * p.s0); o.material.opacity = 1 - k; o.lookAt(camera.position);
+    } else if (p.kind === 'bolt') {
+      const { a, b } = o.userData, pa = o.geometry.attributes.position, n = pa.count;
+      for (let k2 = 0; k2 < n; k2++) { const t = k2 / (n - 1), j = k2 === 0 || k2 === n - 1 ? 0 : 0.25; pa.setXYZ(k2, lerp(a.x, b.x, t) + rand(-j, j), lerp(a.y, b.y, t) + rand(-j, j), a.z); }
+      pa.needsUpdate = true; o.material.opacity = p.life / p.max;
     } else if (p.kind === 'laser') {
       const e = E.outCubic(Math.min(1, k * 2.2));
       if (o.userData.axis === 'x') o.scale.x = o.userData.len * e; else o.scale.y = o.userData.len * e;
@@ -2741,7 +3358,7 @@ function updateParts(dt) {
     if (p.life <= 0) {
       fxGroup.remove(o); parts.splice(i, 1);
       if (p.kind === 'shard') shardPool.push(o); else if (p.kind === 'spark') sparkPool.push(o); else if (p.kind === 'conf') confPool.push(o);
-      else if (o.material) o.material.dispose();
+      else { if (o.material) o.material.dispose(); if (p.kind === 'bolt') o.geometry.dispose(); }
     }
   }
 }
@@ -2777,6 +3394,11 @@ function makeBlockView(b, x, y) {
     body.rotation.set(rand(0, 3), rand(0, 3), rand(0, 3)); body.scale.set(0.95, 0.9, 0.85);
     const moss = new THREE.Mesh(new THREE.IcosahedronGeometry(0.16, 0), flatMat(world.theme.grass));
     moss.position.set(rand(-0.2, 0.2), 0.38, 0.1); moss.scale.set(1.4, 0.5, 1.2); g.add(moss);
+  } else if (b.k === 'c') {
+    body = new THREE.Mesh(G.crystal, new THREE.MeshStandardMaterial({ color: '#d9b8ff', flatShading: true, roughness: 0.12, metalness: 0.15, emissive: '#9b5cff', emissiveIntensity: 0.9, transparent: true, opacity: 0.92 }));
+    body.scale.set(0.75, 1.1, 0.75);
+    const inner = new THREE.Mesh(G.crystal, flatMat('#ffffff', { emissive: '#e8d8ff', emissiveIntensity: 1.6 })); inner.scale.set(0.3, 0.5, 0.3); g.add(inner);
+    const base = new THREE.Mesh(G.cap, flatMat('#3a2f55')); base.position.y = -0.42; base.scale.set(2, 1, 2); g.add(base);
   } else if (b.k === 'a') {
     body = new THREE.Mesh(G.block, new THREE.MeshStandardMaterial({ color: '#56627a', flatShading: true, roughness: 0.35, metalness: 0.6, emissive: '#000000' }));
     label = new THREE.Mesh(G.label, new THREE.MeshBasicMaterial({ map: anchorTex, transparent: true, depthWrite: false, color: 0xffffff }));
@@ -2795,6 +3417,7 @@ function makeBlockView(b, x, y) {
   if (b.ice) addIce(v);
   if (b.bomb) addBomb(v);
   if (b.spawner) addSpawner(v);
+  if (b.chain) setChain(v);
   if (b.blaze) setBlaze(v, true);
   cellPos(x, y, g.position); boardGroup.add(g); views.set(b.id, v);
   return v;
@@ -2809,6 +3432,7 @@ const anchorTex = canvasTex(128, (g, sz) => {
   g.beginPath(); g.moveTo(102, 86); g.lineTo(94, 96); g.lineTo(90, 82); g.fill();
 });
 G.gearRing = new THREE.TorusGeometry(0.37, 0.035, 4, 20);
+G.crystal = new THREE.OctahedronGeometry(0.42, 0);
 G.tooth = new THREE.BoxGeometry(0.08, 0.08, 0.06);
 G.pipe = new THREE.CylinderGeometry(0.07, 0.07, 0.22, 6);
 function addSpawner(v) {
@@ -2845,6 +3469,12 @@ function addBomb(v) {
   badge.position.set(-0.3, 0.3, 0.5); badge.scale.setScalar(0.36); badge.renderOrder = 4;
   v.g.add(f, badge); v.bombParts = { f, spark, badge };
 }
+function setChain(v) {
+  if (v.chainMark) return;
+  const m = new THREE.Sprite(new THREE.SpriteMaterial({ map: boltTex, transparent: true })); m.position.set(0.3, 0.3, 0.5); m.scale.setScalar(0.3); m.renderOrder = 4;
+  v.g.add(m); v.chainMark = m;
+}
+const boltTex = canvasTex(64, (g, sz) => { g.beginPath(); g.arc(32, 32, 28, 0, Math.PI * 2); g.fillStyle = '#1b2a5a'; g.fill(); g.fillStyle = '#7ef0ff'; g.beginPath(); g.moveTo(36, 8); g.lineTo(18, 36); g.lineTo(30, 36); g.lineTo(26, 56); g.lineTo(46, 26); g.lineTo(33, 26); g.closePath(); g.fill(); });
 function setBombTimer(v, n) { v.bomb = n; if (v.bombParts) v.bombParts.badge.material.map = timerTex(n); }
 const blockById = id => S && S.cells.find(c => c && c.id === id);
 function addIce(v) {
@@ -2920,14 +3550,15 @@ let trayViews = [];
 const auraMat = c => new THREE.SpriteMaterial({ map: glowTex, color: c, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.8 });
 function makeDieView(d) {
   const g = new THREE.Group();
-  const col = DIE_INFO[d.type].color, ec = d.emp ? EMPS[d.emp].color : '#000000';
-  const mat = new THREE.MeshStandardMaterial({ color: col, flatShading: true, roughness: 0.32, metalness: 0.1, emissive: ec, emissiveIntensity: d.emp ? 0.35 : 0 });
+  const e1 = d.emp || d.emp2, col = DIE_INFO[d.type].color, ec = e1 ? EMPS[e1].color : '#000000';
+  const mat = new THREE.MeshStandardMaterial({ color: col, flatShading: true, roughness: 0.32, metalness: 0.1, emissive: ec, emissiveIntensity: e1 ? 0.35 : 0 });
   const mesh = new THREE.Mesh(G.dice[d.type], mat); mesh.castShadow = true;
   mesh.add(new THREE.LineSegments(G.diceEdges[d.type], edgeMat)); g.add(mesh);
   const badge = new THREE.Sprite(new THREE.SpriteMaterial({ map: badgeTex(d.type, d.value), transparent: true, depthTest: false }));
   badge.renderOrder = 20; badge.scale.setScalar(0.5); badge.position.set(0, 0.66, 0.15); g.add(badge);
   let aura = null;
-  if (d.emp) { aura = new THREE.Sprite(auraMat(ec)); aura.scale.setScalar(1.6); aura.renderOrder = -1; g.add(aura); }
+  if (e1) { aura = new THREE.Sprite(auraMat(ec)); aura.scale.setScalar(1.6); aura.renderOrder = -1; g.add(aura); }
+  if (d.emp && d.emp2) { const a2 = new THREE.Sprite(auraMat(EMPS[d.emp2].color)); a2.scale.setScalar(1.1); a2.position.set(0.25, 0.2, -0.1); a2.renderOrder = -1; g.add(a2); }
   trayGroup.add(g);
   return { g, mesh, badge, aura, d, rest: new THREE.Quaternion().setFromEuler(new THREE.Euler(...REST[d.type])), slot: new THREE.Vector3(), state: 'idle', ph: rand(0, 6), shown: d.value };
 }
@@ -2963,7 +3594,7 @@ async function rollAnim() {
       if (contacts.length && k >= contacts[0]) { contacts.shift(); sfx.clack(1 - k * 0.5); spawnSparks(v.g.position, '#ffffff', 3, 1.2, 0.25, 0.35); }
     })).then(() => {
       setBadge(v, d.value); v.badge.material.opacity = 1; v.state = 'idle'; sfx.clack(0.4); sfx.pop();
-      spawnSparks(v.g.position.clone().add(new THREE.Vector3(0, 0.66, 0)), d.emp ? EMPS[d.emp].color : DIE_INFO[d.type].color, 12, 2.2, 0.3, 0.5);
+      spawnSparks(v.g.position.clone().add(new THREE.Vector3(0, 0.66, 0)), (d.emp || d.emp2) ? EMPS[d.emp || d.emp2].color : DIE_INFO[d.type].color, 12, 2.2, 0.3, 0.5);
       return tween(380, e => v.badge.scale.setScalar(0.5 * e), E.outBack);
     }));
   });
@@ -2984,6 +3615,7 @@ const EMP_SVG = {
   mirror: '<path d="M12 3v18M4 7l5 5-5 5zM20 7l-5 5 5 5z" fill="#fff" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/>',
   split: '<rect x="3" y="8" width="8" height="8" rx="2" fill="#fff"/><rect x="13" y="8" width="8" height="8" rx="2" fill="#fff"/>',
   hex: '<path d="M6 12h12" stroke="#fff" stroke-width="3.5" stroke-linecap="round"/><circle cx="12" cy="12" r="9" fill="none" stroke="#fff" stroke-width="2"/>',
+  chain: '<path d="M13 2L5 13h6l-2 9 9-12h-6z" fill="#fff"/>',
   echo: '<rect x="3" y="7" width="10" height="10" rx="2" fill="#fff"/><rect x="11" y="5" width="10" height="10" rx="2" fill="none" stroke="#fff" stroke-width="2"/>',
   wild: '<path d="M12 2l2.9 6.6 7.1.6-5.4 4.7 1.6 7L12 17.2 5.8 20.9l1.6-7L2 9.2l7.1-.6z" fill="#fff"/>',
 };
@@ -3013,6 +3645,7 @@ function goalIcon(g) {
     case 'score': return `<div class="gicon" style="background:#ffd23f">★</div>`;
     case 'anchor': return `<div class="gicon" style="background:#56627a"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#ffe9a8" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="5" r="2"/><path d="M12 7v13M8 10h8M5 14a7 7 0 0 0 14 0"/></svg></div>`;
     case 'spawner': return `<div class="gicon" style="background:#d9a441"><svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="6" fill="none" stroke="#fff" stroke-width="2.5" stroke-dasharray="3 2"/><circle cx="12" cy="12" r="2" fill="#fff"/></svg></div>`;
+    case 'crystal': return `<div class="gicon" style="background:linear-gradient(135deg,#7b5cff,#c58bff)"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2l6 8-6 12-6-12z" fill="#fff" opacity=".9"/></svg></div>`;
     case 'tile': return `<div class="gicon" style="background:#2e2457;color:#ffd23f;box-shadow:inset 0 0 0 2px #ffd23f">×2</div>`;
     case 'combo': return `<div class="gicon" style="background:linear-gradient(135deg,#ff6bd6,#ffd166)">×</div>`;
     case 'bomb': return `<div class="gicon" style="background:#2b2235"><svg viewBox="0 0 24 24" width="22" height="22"><circle cx="11" cy="14" r="7" fill="#ff9a3c"/><path d="M15 8l3-3" stroke="#d9b27c" stroke-width="2"/><circle cx="19" cy="4" r="2" fill="#ffe066"/></svg></div>`;
@@ -3031,6 +3664,7 @@ function goalText(g, long = false) {
     case 'score': return long ? `Score ${g.n}` : '';
     case 'anchor': return long ? `Bring ${g.n > 1 ? 'all ' + g.n + ' anchors' : 'the anchor'} to the bottom` : '';
     case 'spawner': return long ? `Break ${g.n > 1 ? 'all ' + g.n + ' spawners' : 'the spawner'}` : '';
+    case 'crystal': return long ? `Free ${g.n > 1 ? 'all ' + g.n + ' crystals' : 'the crystal'}: clear blocks touching them` : '';
     case 'tile': return long ? `Clear ${g.n} blocks on gold ×2 tiles` : '';
     case 'combo': return long ? `Make a ×${g.n} cascade (clears that set off more clears)` : '';
     case 'bomb': return long ? `Blast ${g.n} bomb${g.n > 1 ? 's' : ''} before ${g.n > 1 ? 'they fizzle' : 'it fizzles'}` : '';
@@ -3081,7 +3715,7 @@ function themeForLevel(lv) { return themeOf(lv.chapter); }
 async function startLevel(lv) {
   closeModal(); closePop();
   level = lv; mode = 'play';
-  const dice = P.loadout.map(id => dieById(id)).filter(Boolean).map(d => ({ id: d.id, type: d.type, emp: d.emp }));
+  const dice = P.loadout.map(id => dieById(id)).filter(Boolean).map(d => ({ id: d.id, type: d.type, emp: d.emp || null, emp2: d.emp2 || null }));
   if (!dice.length) dice.push({ id: 0, type: 'd6', emp: null });
   S = L.createGame(lv, dice);
   snapshot = null; busy = true; shownScore = 0; lastGoalCur = [];
@@ -3217,10 +3851,11 @@ async function playPlace(st, ti) {
   }
   let v = views.get(st.id);
   if (st.mode === 'drop') {
-    v = makeBlockView({ id: st.id, k: st.k || 'n', v: st.v, ice: 0, blaze: st.die.emp === 'blazing' ? 1 : 0 }, st.x, st.y);
+    v = makeBlockView({ id: st.id, k: st.k || 'n', v: st.v, ice: 0, blaze: L.has(st.die, 'blazing') ? 1 : 0 }, st.x, st.y);
     sfx.thunk(); addShake(0.06);
     spawnSparks(new THREE.Vector3(target.x, target.y - 0.45, 0.3), '#ffffff', 8, 1.6, 0.3, 0.4);
     if (st.k === 'w') spawnSparks(target, EMPS.wild.color, 16, 2.5, 0.4, 0.6, 0, starTex);
+    if (L.has(st.die, 'chain') && st.k !== 'w') setChain(v);
     if (st.extra) {
       const e = st.extra, v2 = makeBlockView({ id: e.id, k: 'n', v: e.v, ice: 0, blaze: 0 }, e.x, e.y), p2 = cellPos(e.x, e.y);
       v2.g.position.copy(target); tween(220, k => v2.g.position.lerpVectors(target, p2, k), E.outBack).then(() => squash(v2, 0.35, 280));
@@ -3229,7 +3864,8 @@ async function playPlace(st, ti) {
     await squash(v, 0.4, 320);
   } else if (v) {
     sfx.thunk(0.7); addShake(0.05);
-    if (st.die.emp === 'blazing') setBlaze(v, true);
+    if (L.has(st.die, 'blazing')) setBlaze(v, true);
+    if (L.has(st.die, 'chain')) setChain(v);
     const steps = st.v - st.from, nTicks = Math.min(Math.abs(steps), 12);
     squash(v, 0.3, 300);
     for (let i = 1; i <= nTicks; i++) {
@@ -3242,7 +3878,7 @@ async function playPlace(st, ti) {
       floatText('POOF', target.clone().add(new THREE.Vector3(0, 0.3, 0.6)), { color: '#c9d0ff', size: 20 });
       await tween(200, e => v.g.scale.setScalar(1 - e), E.inQuad); boardGroup.remove(v.g); views.delete(v.id);
     }
-    if (st.die.emp === 'heavy') { addShake(0.12); spawnSparks(target, EMPS.heavy.color, 14, 2.5, 0.35, 0.5); }
+    if (L.has(st.die, 'heavy')) { addShake(0.12); spawnSparks(target, EMPS.heavy.color, 14, 2.5, 0.35, 0.5); }
     if (st.v === 20) { v.body.material.emissive.set('#ffcc33'); v.body.material.emissiveIntensity = 1.5; }
   }
 }
@@ -3296,6 +3932,12 @@ async function playResolve(st) {
     for (let i = 0; i <= 6; i++) spawnSparks(a.clone().lerp(c, i / 6), '#ff7a1a', 3, 1, 0.45, 0.5, -1.5);
     sfx.fizz();
   }
+  // chain lightning
+  if (st.chains && st.chains.length) {
+    sfx.zap(); addShake(0.12);
+    for (const ch of st.chains) { const a = cellPos(...ch.from); for (const t of ch.to) { const b = cellPos(...t); spawnBolt(a, b); spawnBolt(a, b, '#ffffff'); spawnSparks(b, '#7ef0ff', 6, 2, 0.3, 0.4); } }
+    banner('CHAIN!', 'line');
+  }
   // decrements (burst neighbors)
   for (const d of st.decs) {
     const v = views.get(d.id); if (!v) continue;
@@ -3306,11 +3948,13 @@ async function playResolve(st) {
   const groupSize = st.cleared.length;
   if (groupSize) {
     sfx.chime(combo, Math.min(groupSize, 4)); vibrate(20);
+    if (st.cleared.some(c => c.k === 'c')) sfx.shine();
     const center = new THREE.Vector3();
     for (const c of st.cleared) {
       const v = views.get(c.id), p = cellPos(c.x, c.y);
       center.add(p);
-      const col = c.k === 's' ? '#9a93ad' : c.k === 'w' ? EMPS.wild.color : valColor(clamp(c.v, 1, 20));
+      const col = c.k === 's' ? '#9a93ad' : c.k === 'c' ? '#c58bff' : c.k === 'w' ? EMPS.wild.color : valColor(clamp(c.v, 1, 20));
+      if (c.k === 'c') { spawnSparks(p, '#e8d8ff', 14, 3, 0.4, 0.7, 0, starTex); spawnRing(p, '#c58bff', 2.5, 0.4); }
       spawnShards(p, col, reduced() ? 5 : 11, 3.4);
       spawnSparks(p, c.k === 's' ? '#ffffff' : col, 6, 2.5, 0.35, 0.5, 0, starTex);
       if (c.ice) spawnShards(p, '#d4f1ff', 6, 3);
@@ -3406,6 +4050,10 @@ function grantReward(r) {
     if (!P.unlockedEmps.includes(r.emp)) P.unlockedEmps.push(r.emp);
     return `<div class="reward">${empIcon(r.emp)}<div><b>Empowerment: ${EMPS[r.emp].name}!</b><br>${EMPS[r.emp].desc} Attach it in Dice.</div></div>`;
   }
+  if (r.slot2) {
+    P.emp2 = true;
+    return `<div class="reward"><div class="emp-ico" style="background:var(--violet)">2</div><div><b>Second power slot!</b><br>Every die can now hold two empowerments. Set them up in Dice.</div></div>`;
+  }
   if (r.slot) {
     P.slots += r.slot;
     const free = P.dice.find(d => !P.loadout.includes(d.id)); if (free && P.loadout.length < P.slots) P.loadout.push(free.id);
@@ -3494,9 +4142,9 @@ function openDiePop(ti) {
   const d = S.tray[ti], v = trayViews[ti]; const p = toScreen(v.g.position.clone().add(new THREE.Vector3(0, 0.7, 0)));
   const el = document.createElement('div'); el.id = 'pop';
   el.style.left = clamp(p.x, 110, innerWidth - 110) + 'px'; el.style.top = (p.y - 10) + 'px';
-  let html = `<b>${DIE_INFO[d.type].name} rolled ${d.value}</b><span>${d.emp ? `<b style="display:inline;color:${EMPS[d.emp].color}">${EMPS[d.emp].name}:</b> ${EMPS[d.emp].desc}` : 'Drag me onto the board.'}</span>`;
-  if (d.emp === 'reroll') html += `<button class="btn small teal" data-pop="reroll" ${d.used ? 'disabled' : ''}>${d.used ? 'Reroll used' : 'Reroll'}</button>`;
-  if (d.emp === 'mirror') html += `<button class="btn small violet" data-pop="flip">Flip to ${d.sides + 1 - d.value}</button>`;
+  let html = `<b>${DIE_INFO[d.type].name} rolled ${d.value}</b><span>${empsOf(d).length ? empsOf(d).map(e => `<b style="display:inline;color:${EMPS[e].color}">${EMPS[e].name}:</b> ${EMPS[e].desc}`).join('<br>') : 'Drag me onto the board.'}</span>`;
+  if (L.has(d, 'reroll')) html += `<button class="btn small teal" data-pop="reroll" ${d.used ? 'disabled' : ''}>${d.used ? 'Reroll used' : 'Reroll'}</button>`;
+  if (L.has(d, 'mirror')) html += `<button class="btn small violet" data-pop="flip">Flip to ${d.sides + 1 - d.value}</button>`;
   el.innerHTML = html; document.body.appendChild(el);
   el.addEventListener('click', ev => {
     const b = ev.target.closest('[data-pop]'); if (!b) return;
@@ -3577,9 +4225,11 @@ function onAct(act, ds) {
       save(); showDie(id); break;
     }
     case 'set-emp': {
-      const d = dieById(+ds.id), e = ds.emp || null;
-      if (e && empAvail(e) <= 0 && d.emp !== e) { toast('None left. Buy more in the shop!'); break; }
-      d.emp = e; save(); sfx.coin(); showDie(d.id); break;
+      const d = dieById(+ds.id), e = ds.emp || null, field = ds.slot === '2' ? 'emp2' : 'emp', other = field === 'emp' ? d.emp2 : d.emp;
+      if (e && empAvail(e) <= 0 && d[field] !== e) { toast('None left. Buy more in the shop!'); break; }
+      if (e && other === e) { toast('That power is already in the other slot.'); break; }
+      if (e && other && EXCLUSIVE.some(p => p.includes(e) && p.includes(other))) { toast(`${EMPS[e].name} and ${EMPS[other].name} can't share a die.`); break; }
+      d[field] = e; save(); sfx.coin(); showDie(d.id); break;
     }
     case 'buy-die': {
       const t = ds.type, price = DIE_INFO[t].price; if (P.gems < price) { toast('Not enough gems'); sfx.nope(); break; }
@@ -3629,6 +4279,9 @@ const TEACH = {
   bomb: { title: 'Bombs', note: 'Each roll ticks a bomb timer down by 1. Clear the bomb in a match before it reaches 0 and it blasts everything in the 3×3 around it. At 0 it fizzles into stone.', panels: [
     { rows: ['. . . .', '2 9 . .', 'b4 4 . 1'], die: { v: 4, col: 2, row: 2 }, cap: 'Match the bomb' },
     { rows: ['. . . .', 'x x . .', 'x x x 1'], boom: [2, 0], cap: 'BOOM! 3×3 blast' }] },
+  crystal: { title: 'Crystals', note: 'Crystals never match and you cannot stack on them. Any clear right next to one (a match, a burst, a blast or a line bonus) breaks it free.', panels: [
+    { rows: ['. . . .', 'C . . .', '4 4 . 1'], die: { v: 4, col: 2, row: 2 }, cap: 'Match next to a crystal' },
+    { rows: ['. . . .', 'x . . .', 'x x x 1'], cap: 'It breaks free!' }] },
   anchor: { title: 'Anchors', note: 'Anchors never match and nothing can break them. Clear the blocks underneath so they sink; when an anchor reaches the bottom row it is collected. Line bonuses pass right over them.', panels: [
     { rows: ['. A .', '. 3 .', '3 2 .'], die: { v: 3, col: 2, row: 2 }, cap: 'Match under the anchor' },
     { rows: ['. . .', '. A .', 'x 2 x'], cap: 'It sinks' },
@@ -3664,6 +4317,7 @@ function teachPanel(p) {
     if (t.length > 1 && t[0] === 'x') { tileFrame = true; t = t.slice(1); }
     if (tileFrame) s += `<rect x="${x - 2}" y="${y - 2}" width="${w + 4}" height="${w + 4}" rx="6" fill="none" stroke="#ffd23f" stroke-width="2.5"/>`;
     if (t === '.') { s += `<rect x="${x}" y="${y}" width="${w}" height="${w}" rx="5" fill="#3c3274"/>`; return; }
+    if (t === 'C') { s += `<rect x="${x}" y="${y}" width="${w}" height="${w}" rx="5" fill="#2a1f45"/><path d="M${x + w / 2} ${y + 3}l${w / 3} ${w / 2 - 3}-${w / 3} ${w / 2 - 3}-${w / 3}-${w / 2 - 3}z" fill="#c58bff"/>`; return; }
     if (t === 'A') { s += `<rect x="${x}" y="${y}" width="${w}" height="${w}" rx="5" fill="#56627a"/><text x="${x + w / 2}" y="${y + w / 2 + 5}" text-anchor="middle" font-size="14" fill="#ffe9a8">⚓</text>`; return; }
     if (t === '★') { s += `<text x="${x + w / 2}" y="${y + w / 2 + 6}" text-anchor="middle" font-size="18" fill="#ffd23f">★</text>`; return; }
     if (t === 'S') { s += `<path d="M${x + 3} ${y + w - 3}l3-${w - 10} ${w / 2 - 4}-5 ${w / 2 - 2} 6-1 ${w - 10}z" fill="#9a93ad" stroke="#6f6886"/>`; return; }
@@ -3722,10 +4376,10 @@ function showIntro(lv) {
   openModal(`<div class="row center"><span class="tag" style="background:${themeForLevel(lv).tag};padding:3px 10px;border-radius:999px;color:#fff;font-weight:700;font-size:12px;letter-spacing:.08em">CHAPTER ${lv.chapter} · ${esc(lv.id)}${lv.boss ? ' · BOSS' : ''}</span></div>
     <h1>${esc(lv.name)}</h1>
     <div class="sub">${lv.rolls} rolls · ${lv.rows[0].trim().split(/\s+/).length}×${lv.rows.length} board</div>
-    <div class="goal-list">${lv.goals.map(g => { const gg = { ...g }; if (['ice', 'stone', 'bomb', 'anchor', 'spawner'].includes(g.t) && !g.n) gg.n = L.createGame(lv, []).goals.find(x => x.t === g.t).n; return `<div class="goal-big">${goalIcon(gg)}<span>${goalText(gg, true)}</span></div>`; }).join('')}</div>
+    <div class="goal-list">${lv.goals.map(g => { const gg = { ...g }; if (['ice', 'stone', 'bomb', 'anchor', 'spawner', 'crystal'].includes(g.t) && !g.n) gg.n = L.createGame(lv, []).goals.find(x => x.t === g.t).n; return `<div class="goal-big">${goalIcon(gg)}<span>${goalText(gg, true)}</span></div>`; }).join('')}</div>
     ${lv.teach ? teachCard(lv.teach) : lv.tip ? `<div class="tip">💡 ${esc(lv.tip)}</div>` : ''}
     <h3>Your dice (${lo.length}/${P.slots})</h3>
-    <div class="dice-row">${lo.map(d => `<div class="die-card">${dieSvg(d.type)}${d.emp ? `<span class="emp" style="background:${EMPS[d.emp].color}">${EMPS[d.emp].name}</span>` : '<span class="emp" style="color:#b3a6cc">plain</span>'}</div>`).join('')}</div>
+    <div class="dice-row">${lo.map(d => `<div class="die-card">${dieSvg(d.type)}${empsOf(d).length ? empChips(d) : '<span class="emp" style="color:#b3a6cc">plain</span>'}</div>`).join('')}</div>
     <div class="actions"><button class="btn ghost" data-act="collection" data-back="${i}">Change dice</button><button class="btn" data-act="play" data-i="${i}">Play ▶</button></div>`, { back: i });
 }
 function showCollection(back = null, tab = 'dice') {
@@ -3748,16 +4402,25 @@ function showCollection(back = null, tab = 'dice') {
 }
 function dieCardHtml(d) {
   const inL = P.loadout.includes(d.id);
-  return `<div class="die-card ${inL ? 'in' : ''}" data-act="die" data-id="${d.id}">${inL ? '<span class="inbadge">IN</span>' : ''}${dieSvg(d.type)}<span>${DIE_INFO[d.type].name}</span>${d.emp ? `<span class="emp" style="background:${EMPS[d.emp].color}">${EMPS[d.emp].name}</span>` : ''}</div>`;
+  return `<div class="die-card ${inL ? 'in' : ''}" data-act="die" data-id="${d.id}">${inL ? '<span class="inbadge">IN</span>' : ''}${dieSvg(d.type)}<span>${DIE_INFO[d.type].name}</span>${empChips(d)}</div>`;
+}
+function empSlotHtml(d, slot) {
+  const field = slot === 2 ? 'emp2' : 'emp', cur = d[field], other = slot === 2 ? d.emp : d.emp2, id = d.id;
+  if (!P.unlockedEmps.length) return `<h3>Power slot ${slot}</h3><div class="tip">No empowerments yet. Beat 1-2 to earn your first.</div>`;
+  return `<h3>Power slot ${slot}</h3>
+    <button class="choice ${!cur ? 'on' : ''}" data-act="set-emp" data-slot="${slot}" data-id="${id}" data-emp=""><div class="emp-ico" style="background:#cfc7dd">–</div>None</button>
+    ${P.unlockedEmps.map(e => {
+      const av = empAvail(e) + (cur === e ? 1 : 0), clash = other && (other === e || EXCLUSIVE.some(p => p.includes(e) && p.includes(other)));
+      return `<button class="choice ${cur === e ? 'on' : ''}" data-act="set-emp" data-slot="${slot}" data-id="${id}" data-emp="${e}" ${av <= 0 || clash ? 'disabled' : ''}>${empIcon(e, 36)}<div style="flex:1"><b>${EMPS[e].name}</b><div style="font-size:12px;color:var(--ink2);font-weight:500">${clash ? (other === e ? 'Already in the other slot' : 'Can\'t combine with ' + EMPS[other].name) : EMPS[e].desc}</div></div><span>${av} free</span></button>`;
+    }).join('')}`;
 }
 function showDie(id) {
   const d = dieById(id), back = modalOpts.back, inL = P.loadout.includes(id);
   openModal(`<div class="row center">${dieSvg(d.type).replace('class="die"', 'class="die" style="width:80px;height:80px"')}</div>
     <h1>${DIE_INFO[d.type].name}</h1><div class="sub">${DIE_INFO[d.type].role} · rolls 1–${L.SIDES[d.type]}</div>
     <div class="actions" style="margin-top:4px"><button class="btn ${inL ? 'ghost' : 'teal'}" data-act="toggle-load" data-id="${id}">${inL ? 'Remove from loadout' : 'Add to loadout'}</button></div>
-    <h3>Empowerment slot</h3>
-    <button class="choice ${!d.emp ? 'on' : ''}" data-act="set-emp" data-id="${id}" data-emp=""><div class="emp-ico" style="background:#cfc7dd">–</div>None</button>
-    ${P.unlockedEmps.map(e => { const av = empAvail(e) + (d.emp === e ? 1 : 0); return `<button class="choice ${d.emp === e ? 'on' : ''}" data-act="set-emp" data-id="${id}" data-emp="${e}" ${av <= 0 ? 'disabled' : ''}>${empIcon(e, 36)}<div style="flex:1"><b>${EMPS[e].name}</b><div style="font-size:12px;color:var(--ink2);font-weight:500">${EMPS[e].desc}</div></div><span>${av} free</span></button>`; }).join('') || '<div class="tip">No empowerments yet. Beat 1-2 to earn your first.</div>'}
+    ${empSlotHtml(d, 1)}
+    ${P.emp2 ? empSlotHtml(d, 2) : '<h3>Power slot 2</h3><div class="tip">🔒 Unlocks in chapter 8: every die gets a second power slot.</div>'}
     <div class="actions"><button class="btn" data-act="collection" ${back != null ? `data-back="${back}"` : ''}>Back</button></div>`, { back });
 }
 function showSettings() {
@@ -3830,6 +4493,7 @@ function frame(now) {
     else if (p.kind === 'bob') p.o.position.y = p.y + Math.sin(T * 0.7 + p.ph) * 0.25;
     else if (p.kind === 'spin') p.o.rotation.y += dt * 0.8;
     else if (p.kind === 'steam') { if (Math.random() < dt * 1.2) spawnSparks(p.o.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.45, 0)), '#ffffff', 1, 0.3, 0.6, 1.4, -0.5); }
+    else if (p.kind === 'glow') p.o.material.emissiveIntensity = 0.7 + 0.35 * Math.sin(T * 1.8 + p.ph);
     else if (p.kind === 'tile') p.o.material.opacity = 0.7 + 0.3 * Math.sin(T * 3 + p.ph);
     else if (p.kind === 'gear') p.o.rotation.z += dt * p.sp;
     else if (p.kind === 'lava') p.o.material.emissiveIntensity = 1.4 + 0.5 * Math.sin(T * 1.5 + p.ph);
@@ -3858,6 +4522,7 @@ function frame(now) {
     if (v.blaze && Math.random() < dt * 6) spawnSparks(v.g.position.clone().add(new THREE.Vector3(rand(-0.3, 0.3), 0.35, 0.3)), Math.random() < 0.5 ? '#ff7a1a' : '#ffd23f', 1, 0.4, 0.3, 0.6, -1.6);
     if (v.ice) v.ice.children[0].material.emissiveIntensity = 0.25 + 0.1 * Math.sin(T * 2 + v.id);
     if (v.spawnParts) { v.spawnParts.gear.rotation.z -= dt * 1.2; if (Math.random() < dt * 1.5) spawnSparks(v.g.position.clone().add(new THREE.Vector3(0, 0.7, 0.1)), '#ffffff', 1, 0.3, 0.45, 1.0, -0.6); }
+    if (v.k === 'c') { v.body.rotation.y += dt * 0.8; v.body.material.emissiveIntensity = 0.7 + 0.3 * Math.sin(T * 2.5 + v.id); }
     if (v.k === 'w') v.body.material.emissive.setHSL((T * 0.25 + v.id * 0.13) % 1, 1, 0.5);
     if (v.bombParts) {
       v.bombParts.spark.scale.setScalar(0.26 + Math.random() * 0.14);
@@ -3874,7 +4539,7 @@ function frame(now) {
     if (v.state === 'idle' && mode === 'play') {
       v.g.position.y = v.slot.y + Math.sin(T * 2 + v.ph) * 0.035;
       tmpE.set(Math.sin(T * 1.3 + v.ph) * 0.06, Math.sin(T * 0.9 + v.ph) * 0.12, 0); v.mesh.quaternion.copy(v.rest).multiply(tmpQ.setFromEuler(tmpE));
-      if (v.d.emp === 'blazing' && Math.random() < dt * 4) spawnSparks(v.g.position, '#ff7a1a', 1, 0.4, 0.3, 0.5, -1.4);
+      if (L.has(v.d, 'blazing') && Math.random() < dt * 4) spawnSparks(v.g.position, '#ff7a1a', 1, 0.4, 0.3, 0.5, -1.4);
     }
   });
   for (const v of mapDice) {
