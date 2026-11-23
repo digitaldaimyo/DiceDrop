@@ -173,6 +173,8 @@ button{font-family:var(--font);border:0;cursor:pointer;color:inherit}
 #pop b{display:block;font-size:16px}
 #pop span{display:block;font-size:13px;color:var(--ink2);margin:2px 0 8px;font-weight:500}
 #toast{position:fixed;left:50%;top:22%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:14px;font-weight:600;z-index:30;animation:fade .2s;max-width:86vw;text-align:center}
+#building{position:fixed;inset:0;z-index:35;display:grid;place-items:center;background:rgba(20,8,45,.55);backdrop-filter:blur(3px);color:#fff;font-weight:700;font-size:20px;text-align:center}
+#building .spin,#loading .spin{width:54px;height:54px;margin:0 auto 14px;border-radius:12px;background:var(--orange);box-shadow:0 5px 0 var(--orange-d);animation:spin 1s cubic-bezier(.5,0,.5,1) infinite}
 #loading{position:fixed;inset:0;z-index:40;display:grid;place-items:center;background:radial-gradient(circle at 50% 40%,#5b3fc4,#1b1238);color:#fff;font-weight:700;font-size:22px}
 #loading .spin{width:54px;height:54px;margin:0 auto 14px;border-radius:12px;background:var(--orange);box-shadow:0 5px 0 var(--orange-d);animation:spin 1s cubic-bezier(.5,0,.5,1) infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -225,6 +227,10 @@ const rint = (s, a, b) => a + Math.floor(rnd(s) * (b - a + 1));
 
 const has = (d, e) => !!d && (d.emp === e || d.emp2 === e);
 const idx = (s, x, y) => y * s.w + x;
+const isPrime = n => n === 2 || n === 3 || n === 5 || n === 7 || n === 11 || n === 13 || n === 17 || n === 19;
+// a numbered block that can take part in matches right now (prime-locked blocks wait for a prime value)
+const matchable = c => !!c && c.k === 'n' && !(c.prime && !isPrime(c.v));
+const parityOk = (c, v) => !c.par || (c.par === 'e' ? v % 2 === 0 : v % 2 === 1);
 const at = (s, x, y) => (x < 0 || y < 0 || x >= s.w || y >= s.h ? null : s.cells[idx(s, x, y)]);
 const isHole = (s, x, y) => !!s.holes[idx(s, x, y)];
 
@@ -240,8 +246,8 @@ function createGame(level, dice, seed = (Math.random() * 2 ** 31) | 0) {
     w, h, cells: new Array(w * h).fill(null), holes: new Array(w * h).fill(0), mult: new Array(w * h).fill(0),
     nextId: 1, rs: seed | 0, tray: [], dice: dice.map(d => ({ ...d })),
     rollsLeft: level.rolls, rollsTotal: level.rolls, score: 0,
-    prog: { broken: {}, total: 0, bursts: 0, lines: 0, ice: 0, stone: 0, bombs: 0, anchors: 0, spawners: 0, tiles: 0, crystals: 0, maxCombo: 0 },
-    goals: level.goals.map(g => ({ ...g })), status: 'roll', turn: 0,
+    prog: { broken: {}, total: 0, bursts: 0, lines: 0, ice: 0, stone: 0, bombs: 0, anchors: 0, spawners: 0, tiles: 0, crystals: 0, parity: 0, primes: 0, maxCombo: 0 },
+    goals: level.goals.map(g => ({ ...g })), status: 'roll', turn: 0, nograv: level.gravity === false,
   };
   for (let r = 0; r < h; r++) {
     const y = h - 1 - r;
@@ -257,10 +263,12 @@ function createGame(level, dice, seed = (Math.random() * 2 ** 31) | 0) {
       if (t === 'w') { s.cells[i] = { id: s.nextId++, k: 'w', v: 0, ice: 0, blaze: 0 }; continue; }
       let ice = 0, bomb = 0, v = t;
       if (t[0] === 'i') { ice = 1; v = t.slice(1); }
-      let spawner = 0;
+      let spawner = 0, par = null, prime = 0;
+      if (t[0] === 'e' || t[0] === 'o') { par = t[0]; v = t.slice(1); }
+      if (t[0] === 'p') { prime = 1; v = t.slice(1); }
       if (t[0] === 'b') { const [a, b] = t.slice(1).split(':'); v = a; bomb = +(b || 4); }
       if (t[0] === 'g') { spawner = 1; v = t.slice(1); }
-      s.cells[i] = { id: s.nextId++, k: 'n', v: +v, ice, blaze: 0, bomb, spawner };
+      s.cells[i] = { id: s.nextId++, k: 'n', v: +v, ice, blaze: 0, bomb, spawner, par, prime };
     }
   }
   // auto-fill goal counts
@@ -271,6 +279,8 @@ function createGame(level, dice, seed = (Math.random() * 2 ** 31) | 0) {
     if (g.t === 'anchor' && !g.n) g.n = s.cells.filter(c => c && c.k === 'a').length;
     if (g.t === 'spawner' && !g.n) g.n = s.cells.filter(c => c && c.spawner).length;
     if (g.t === 'crystal' && !g.n) g.n = s.cells.filter(c => c && c.k === 'c').length;
+    if (g.t === 'parity' && !g.n) g.n = s.cells.filter(c => c && c.par).length;
+    if (g.t === 'prime' && !g.n) g.n = s.cells.filter(c => c && c.prime).length;
   }
   s.initialBlocks = s.cells.filter(Boolean).length;
   gravity(s);
@@ -294,6 +304,7 @@ function roll(s) {
   if (s.turn > 0) {
     for (let i = 0; i < s.cells.length; i++) {
       const c = s.cells[i]; if (!c || !c.spawner) continue;
+      if (s.nograv) continue;
       const x = i % s.w, y = landY(s, x); if (y < 0) continue;
       const nb = { id: s.nextId++, k: 'n', v: 1, ice: 0, blaze: 0 };
       s.cells[idx(s, x, y)] = nb;
@@ -330,6 +341,10 @@ function flipDie(s, ti) {
 const unplaced = s => s.tray.filter(d => !d.placed);
 
 // ---------- placement ----------
+function dropAt(s, x, yHint) {
+  if (!s.nograv) return landY(s, x);
+  return yHint >= 0 && yHint < s.h && x >= 0 && x < s.w && !isHole(s, x, yHint) && !at(s, x, yHint) ? yHint : -1;
+}
 function landY(s, x) {
   for (let y = 0; y < s.h; y++) if (!isHole(s, x, y) && !at(s, x, y)) return y;
   return -1;
@@ -342,15 +357,17 @@ function targetFor(s, x, y) {
     const c = at(s, x, yy);
     if (c) return { kind: 'stack', x, y: yy };
   }
+  if (s.nograv) { const d = dropAt(s, x, y); return d >= 0 ? { kind: 'drop', x, y: d } : null; }
   const ly = landY(s, x);
   if (ly < 0) return null;
   return { kind: 'drop', x, y: ly };
 }
 function canPlace(s, die, tgt, value = die.value) {
   if (!tgt) return false;
-  if (tgt.kind === 'drop') return landY(s, tgt.x) === tgt.y;
+  if (tgt.kind === 'drop') return dropAt(s, tgt.x, tgt.y) === tgt.y;
   const c = at(s, tgt.x, tgt.y);
   if (!c || c.k !== 'n' || c.ice) return false;
+  if (!parityOk(c, value)) return false;
   if (has(die, 'heavy')) return true;
   if (has(die, 'hex')) return c.v - value >= 0;
   return c.v + value <= MAX_V;
@@ -362,12 +379,12 @@ function stackResult(s, die, tgt, value = die.value) {
   return has(die, 'heavy') ? value : has(die, 'hex') ? c.v - value : c.v + value;
 }
 function hasLegalMove(s, die) {
-  for (let x = 0; x < s.w; x++) if (landY(s, x) >= 0) return true;
+  if (s.nograv) { for (let i = 0; i < s.cells.length; i++) if (!s.cells[i] && !s.holes[i]) return true; }
+  else for (let x = 0; x < s.w; x++) if (landY(s, x) >= 0) return true;
   const vals = has(die, 'mirror') ? [die.value, die.sides + 1 - die.value] : [die.value];
   for (const c of s.cells) {
     if (!c || c.k !== 'n' || c.ice) continue;
-    if (has(die, 'heavy')) return true;
-    for (const v of vals) if (has(die, 'hex') ? c.v - v >= 0 : c.v + v <= MAX_V) return true;
+    for (const v of vals) { if (!parityOk(c, v)) continue; if (has(die, 'heavy') || (has(die, 'hex') ? c.v - v >= 0 : c.v + v <= MAX_V)) return true; }
   }
   return false;
 }
@@ -385,7 +402,7 @@ function place(s, ti, tgt, value) {
     if (has(die, 'chain') && b.k === 'n') b.chain = 1;
     s.cells[idx(s, tgt.x, tgt.y)] = b;
     let extra = null;
-    if (sp) { const y2 = landY(s, sp.x2); const b2 = { id: s.nextId++, k: 'n', v: sp.b, ice: 0, blaze: 0 }; s.cells[idx(s, sp.x2, y2)] = b2; extra = { id: b2.id, x: sp.x2, y: y2, v: sp.b }; }
+    if (sp) { const y2 = dropAt(s, sp.x2, tgt.y); const b2 = { id: s.nextId++, k: 'n', v: sp.b, ice: 0, blaze: 0 }; s.cells[idx(s, sp.x2, y2)] = b2; extra = { id: b2.id, x: sp.x2, y: y2, v: sp.b }; }
     steps.push({ type: 'place', mode: 'drop', id: b.id, x: tgt.x, y: tgt.y, from: 0, v: b.v, k: b.k, die, extra });
   } else {
     const b = at(s, tgt.x, tgt.y);
@@ -416,7 +433,7 @@ function place(s, ti, tgt, value) {
 // Split: a drop of value >= 2 becomes two blocks (ceil half here, floor half in a neighbor column)
 function splitPlan(s, die, tgt, value) {
   if (!has(die, 'split') || tgt.kind !== 'drop' || value < 2) return null;
-  for (const dx of [1, -1]) { const x2 = tgt.x + dx; if (x2 >= 0 && x2 < s.w && landY(s, x2) >= 0) return { a: Math.ceil(value / 2), b: Math.floor(value / 2), x2 }; }
+  for (const dx of [1, -1]) { const x2 = tgt.x + dx; if (x2 < 0 || x2 >= s.w) continue; const y2 = dropAt(s, x2, tgt.y); if (y2 >= 0 && !(x2 === tgt.x && y2 === tgt.y)) return { a: Math.ceil(value / 2), b: Math.floor(value / 2), x2 }; }
   return null;
 }
 
@@ -437,6 +454,7 @@ function collectAnchors(s) {
 // ---------- gravity ----------
 function gravity(s) {
   const moves = [];
+  if (s.nograv) return moves;
   for (let x = 0; x < s.w; x++) {
     const blocks = [], slots = [];
     for (let y = 0; y < s.h; y++) {
@@ -460,18 +478,18 @@ const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 function findMatches(s) {
   // wild (k:'w') blocks count as any number; a wild can join groups of different numbers
   const groups = [], vals = new Set();
-  for (const c of s.cells) if (c && c.k === 'n') vals.add(c.v);
+  for (const c of s.cells) if (matchable(c)) vals.add(c.v);
   for (const v of vals) {
     const seen = new Uint8Array(s.w * s.h);
     for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) {
       const c = at(s, x, y);
-      if (!c || c.k !== 'n' || c.v !== v || seen[idx(s, x, y)]) continue;
+      if (!matchable(c) || c.v !== v || seen[idx(s, x, y)]) continue;
       const g = [], st = [[x, y]]; seen[idx(s, x, y)] = 1;
       while (st.length) {
         const [cx, cy] = st.pop(); g.push([cx, cy]);
         for (const [dx, dy] of N4) {
           const nx = cx + dx, ny = cy + dy, n = at(s, nx, ny);
-          if (n && ((n.k === 'n' && n.v === v) || n.k === 'w') && !seen[idx(s, nx, ny)]) { seen[idx(s, nx, ny)] = 1; st.push([nx, ny]); }
+          if (n && ((matchable(n) && n.v === v) || n.k === 'w') && !seen[idx(s, nx, ny)]) { seen[idx(s, nx, ny)] = 1; st.push([nx, ny]); }
         }
       }
       if (g.length >= 3) groups.push({ v, cells: g });
@@ -617,6 +635,8 @@ function resolve(s) {
       if (c.ice) s.prog.ice++;
       if (c.spawner) s.prog.spawners++;
       if (tile > 1) s.prog.tiles++;
+      if (c.par) s.prog.parity++;
+      if (c.prime) s.prog.primes++;
       if (c.k === 's') { s.prog.stone++; pts += 50 * tile; }
       else if (c.k === 'c') { s.prog.crystals++; pts += 100 * tile; }
       else if (c.k === 'w') pts += 30 * tile;
@@ -654,6 +674,8 @@ function goalProgress(s) {
       case 'spawner': cur = s.prog.spawners; break;
       case 'tile': cur = s.prog.tiles; break;
       case 'crystal': cur = s.prog.crystals; break;
+      case 'parity': cur = s.prog.parity; break;
+      case 'prime': cur = s.prog.primes; break;
       case 'score': cur = s.score; break;
       case 'combo': cur = s.prog.maxCombo; break;
     }
@@ -694,7 +716,7 @@ function preview(s, ti, tgt, value) {
   let extra = null;
   if (tgt.kind === 'drop') {
     c.cells[idx(c, tgt.x, tgt.y)] = has(die, 'wild') ? { id: -1, k: 'w', v: 0, ice: 0, blaze: 0 } : { id: -1, k: 'n', v: sp ? sp.a : value, ice: 0, blaze: 0 };
-    if (sp) { const y2 = landY(c, sp.x2); c.cells[idx(c, sp.x2, y2)] = { id: -2, k: 'n', v: sp.b, ice: 0, blaze: 0 }; extra = { x: sp.x2, y: y2, v: sp.b }; }
+    if (sp) { const y2 = dropAt(c, sp.x2, tgt.y); c.cells[idx(c, sp.x2, y2)] = { id: -2, k: 'n', v: sp.b, ice: 0, blaze: 0 }; extra = { x: sp.x2, y: y2, v: sp.b }; }
   }
   else { const b = at(c, tgt.x, tgt.y); b.v = result; }
   const ids = new Set();
@@ -708,7 +730,319 @@ function preview(s, ti, tgt, value) {
   return { ok, result: shown, ids: [...ids], burst: result === MAX_V && !sp, extra, wild: has(die, 'wild') && tgt.kind === 'drop' };
 }
 
-return { SIDES, MAX_V, rnd, has, idx, at, isHole, parseLevel, createGame, clone, roll, rerollDie, flipDie, unplaced, landY, targetFor, canPlace, stackResult, hasLegalMove, place, splitPlan, collectAnchors, gravity, findMatches, findLines, triggeredLines, findBursts, resolve, goalProgress, goalsMet, updateStatus, finalScore, starsFor, preview };
+return { SIDES, MAX_V, rnd, has, idx, isPrime, matchable, parityOk, at, isHole, parseLevel, createGame, clone, roll, rerollDie, flipDie, unplaced, dropAt, landY, targetFor, canPlace, stackResult, hasLegalMove, place, splitPlan, collectAnchors, gravity, findMatches, findLines, triggeredLines, findBursts, resolve, goalProgress, goalsMet, updateStatus, finalScore, starsFor, preview };
+})();
+// ---- generator + bot ----
+const GEN = (() => {
+// ===== Board generator: recipe + seed -> level (pure, works in browser and node) =====
+
+function rng(seed) { let a = seed | 0; return () => { a = (a + 0x6d2b79f5) | 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const pickInt = (r, [a, b]) => a + Math.floor(r() * (b - a + 1));
+const pick = (r, arr) => arr[Math.floor(r() * arr.length)];
+
+// hole patterns, y counted from the bottom
+const HOLES = {
+  none: () => [],
+  hourglass: (w, h) => { const m = Math.floor(h / 2); return [[0, m], [w - 1, m], [0, m + 1], [w - 1, m + 1], [1, m], [w - 2, m]]; },
+  pillars: (w, h) => [[1, 2], [1, 3], [w - 2, 2], [w - 2, 3]],
+  notch: (w, h) => [[0, h - 1], [w - 1, h - 1], [0, h - 2], [w - 1, h - 2]],
+  funnel: (w, h) => [[0, 0], [w - 1, 0], [0, 1], [w - 1, 1]],
+};
+
+const NAMES = {
+  meadow: { a: ['Sunny', 'Clover', 'Daisy', 'Breezy', 'Mossy', 'Honey', 'Bramble', 'Dewy'], n: ['Hill', 'Path', 'Patch', 'Grove', 'Field', 'Hollow', 'Brook', 'Glade'] },
+  volcano: { a: ['Molten', 'Smoky', 'Ashen', 'Scorched', 'Cinder', 'Fiery', 'Sizzling', 'Glowing'], n: ['Vent', 'Crater', 'Flow', 'Rift', 'Forge', 'Caldera', 'Pit', 'Ledge'] },
+  clockwork: { a: ['Brass', 'Copper', 'Ticking', 'Geared', 'Rusty', 'Steamy', 'Whirring', 'Bolted'], n: ['Works', 'Spring', 'Cog', 'Valve', 'Piston', 'Engine', 'Tower', 'Lever'] },
+  crystal: { a: ['Amethyst', 'Gleaming', 'Prism', 'Glittering', 'Faceted', 'Radiant', 'Quartz', 'Shining'], n: ['Geode', 'Grotto', 'Vein', 'Cavern', 'Spire', 'Cluster', 'Chamber', 'Hollow'] },
+  ash: { a: ['Ashen', 'Smoldering', 'Sooty', 'Grey', 'Hazy', 'Charred', 'Dim', 'Choking'], n: ['Storm', 'Plume', 'Drift', 'Haze', 'Vent', 'Ridge', 'Flats', 'Fields'] },
+  reef: { a: ['Coral', 'Sandy', 'Bubbly', 'Tidal', 'Pearl', 'Kelp', 'Sunlit', 'Shell'], n: ['Reef', 'Lagoon', 'Shoal', 'Cove', 'Garden', 'Bay', 'Shallows', 'Pool'] },
+  neon: { a: ['Neon', 'Electric', 'Laser', 'Pixel', 'Glowing', 'Midnight', 'Synth', 'Voltage'], n: ['Circuit', 'Grid', 'Arcade', 'Relay', 'Gearbox', 'Signal', 'Switch', 'Core'] },
+  dunes: { a: ['Golden', 'Shifting', 'Sunbaked', 'Windswept', 'Silent', 'Amber', 'Rolling', 'Hidden'], n: ['Dunes', 'Mesa', 'Oasis', 'Sands', 'Canyon', 'Mirage', 'Trail', 'Butte'] },
+  aurora: { a: ['Aurora', 'Glimmer', 'Polar', 'Shimmer', 'Midnight', 'Northern', 'Starry', 'Silent'], n: ['Veil', 'Sky', 'Ribbon', 'Lights', 'Drift', 'Crown', 'Glow', 'Arc'] },
+  dusk: { a: ['Twilight', 'Firefly', 'Dusky', 'Amber', 'Hushed', 'Starlit', 'Velvet', 'Mellow'], n: ['Hollow', 'Glade', 'Lane', 'Meadow', 'Garden', 'Brook', 'Arbor', 'Grove'] },
+  glacier: { a: ['Frosty', 'Glassy', 'Polar', 'Icy', 'Snowy', 'Frozen', 'Shiver', 'Crisp'], n: ['Steps', 'Ledge', 'Drift', 'Pass', 'Ridge', 'Floe', 'Crossing', 'Slope'] },
+};
+const TIPS = {
+  ice: 'Ice takes two matches: the first thaws it.',
+  stone: 'Stones break from a burst next to them or a line bonus through their row.',
+  lines: 'Fill a row so it glows gold, then match inside it.',
+  burst: 'Stack a block to exactly 20 to burst it.',
+  clear: 'Clear every block on the board.',
+  bomb: 'Match bombs before their timers run out.',
+  anchor: 'Clear the blocks under each anchor to sink it.',
+  spawner: 'Spawners add a block every roll. Match them to stop them.',
+  combo: 'Set up falls that make a second match on their own.',
+  parity: 'EVEN blocks only take even dice, ODD blocks only odd dice.',
+  prime: 'Stack prime-locked blocks to a prime number to unlock them.',
+  crystal: 'Clear blocks touching a crystal to break it free.',
+  tile: 'Gold-framed cells double the points of blocks cleared on them.',
+};
+
+function makesMatch(cells, w, h, x, y, v) {
+  // would placing value v at (x,y) create a connected group of 3+ equal numbered blocks?
+  const seen = new Set([x + ',' + y]), st = [[x, y]]; let n = 0;
+  while (st.length) {
+    const [cx, cy] = st.pop(); n++;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = cx + dx, ny = cy + dy, k = nx + ',' + ny;
+      if (nx < 0 || ny < 0 || nx >= w || ny >= h || seen.has(k)) continue;
+      const c = cells[ny * w + nx];
+      if (c && c.k === 'n' && c.v === v) { seen.add(k); st.push([nx, ny]); }
+    }
+  }
+  return n >= 3;
+}
+
+function generateBoard(recipe, seed) {
+  const r = rng(seed);
+  const w = pickInt(r, recipe.w), h = pickInt(r, recipe.h);
+  const holes = new Set((HOLES[recipe.holes ? pick(r, [].concat(recipe.holes)) : 'none'] || HOLES.none)(w, h).map(([x, y]) => x + ',' + y));
+  const isHole = (x, y) => holes.has(x + ',' + y);
+  const cells = new Array(w * h).fill(null);
+  const cols = [...Array(w).keys()].filter(x => [...Array(h).keys()].some(y => !isHole(x, y)));
+  const openCol = pick(r, cols);
+  const slots = []; // per column, non-hole y list bottom-up (minus top 2 rows kept free)
+  let nonHole = 0;
+  for (let x = 0; x < w; x++) { const ys = []; for (let y = 0; y < h; y++) if (!isHole(x, y)) { ys.push(y); nonHole++; } slots[x] = ys.filter(y => y < h - 2); }
+  const fill = recipe.fill[0] + r() * (recipe.fill[1] - recipe.fill[0]);
+  let count = Math.max(3, Math.round(fill * nonHole));
+  const height = new Array(w).fill(0);
+  for (let guard = 0; count > 0 && guard < 500; guard++) {
+    const x = pick(r, cols); if (x === openCol || height[x] >= slots[x].length) continue;
+    height[x]++; count--;
+  }
+  // values, bottom-up so gravity is already settled
+  const [vlo, vhi] = recipe.values;
+  const spots = [];
+  if (recipe.nograv) {
+    // no gravity: scatter blocks anywhere except the open column (keeps every row incomplete)
+    const free = []; for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (x !== openCol && !isHole(x, y)) free.push([x, y]);
+    free.sort(() => r() - 0.5); spots.push(...free.slice(0, height.reduce((a, b) => a + b, 0)));
+  } else for (let x = 0; x < w; x++) for (let i = 0; i < height[x]; i++) spots.push([x, slots[x][i]]);
+  for (const [x, y] of spots) {
+    let v = pickInt(r, [vlo, vhi]);
+    for (let t = 0; t < 12 && makesMatch(cells, w, h, x, y, v); t++) v = pickInt(r, [vlo, vhi]);
+    if (makesMatch(cells, w, h, x, y, v)) continue;
+    cells[y * w + x] = { k: 'n', v, ice: 0 };
+  }
+  const blocks = () => cells.map((c, i) => (c ? i : -1)).filter(i => i >= 0);
+  const tops = () => { const out = []; for (let x = 0; x < w; x++) { let top = -1; for (let y = 0; y < h; y++) if (cells[y * w + x]) top = y * w + x; if (top >= 0) out.push(top); } return out; };
+  // high blocks for bursts
+  if (recipe.high) {
+    let n = pickInt(r, recipe.high.count);
+    for (const i of tops().sort(() => r() - 0.5)) {
+      if (n <= 0) break;
+      const x = i % w, y = Math.floor(i / w), v = pickInt(r, recipe.high.range);
+      const old = cells[i]; cells[i] = null;
+      if (!makesMatch(cells, w, h, x, y, v)) { cells[i] = { k: 'n', v, ice: 0 }; n--; } else cells[i] = old;
+    }
+  }
+  // specials
+  const spec = recipe.specials || {};
+  if (spec.stone) { let n = pickInt(r, spec.stone); for (const i of blocks().sort(() => r() - 0.5)) { if (n-- <= 0) break; cells[i] = { k: 's', v: 0 }; } }
+  if (spec.spawner) { let n = pickInt(r, spec.spawner); for (const i of blocks().sort((a, b) => a - b)) { if (n <= 0) break; const c = cells[i]; if (c.k === 'n' && !c.ice && !c.bomb && c.v <= 9 && r() < 0.5) { c.spawner = 1; n--; } } }
+  if (spec.anchor) {
+    let n = pickInt(r, spec.anchor);
+    for (const x of cols.slice().sort(() => r() - 0.5)) {
+      if (n <= 0) break; if (x === openCol || height[x] < 1 || height[x] >= slots[x].length) continue;
+      const y = slots[x][height[x]]; if (cells[y * w + x]) continue;
+      cells[y * w + x] = { k: 'a', v: 0 }; height[x]++; n--;
+    }
+  }
+  const tiles = new Set();
+  if (recipe.tiles) { let n = pickInt(r, recipe.tiles); for (let g2 = 0; n > 0 && g2 < 200; g2++) { const x = Math.floor(r() * w), y = Math.floor(r() * Math.ceil(h / 2)); if (isHole(x, y) || tiles.has(y * w + x)) continue; tiles.add(y * w + x); n--; } }
+  const NONPRIME = [4, 6, 8, 9, 10, 12, 14];
+  if (spec.prime) { let n = pickInt(r, spec.prime); for (const i of blocks().sort(() => r() - 0.5)) { if (n <= 0) break; const c = cells[i]; if (c.k === 'n' && !c.ice && !c.bomb && !c.spawner) { c.prime = 1; if ([2, 3, 5, 7, 11, 13, 17, 19].includes(c.v)) c.v = pick(r, NONPRIME); n--; } } }
+  if (spec.parity) { let n = pickInt(r, spec.parity); for (const i of blocks().sort(() => r() - 0.5)) { if (n <= 0) break; const c = cells[i]; if (c.k === 'n' && !c.ice && !c.bomb && !c.spawner && !c.prime) { c.par = r() < 0.5 ? 'e' : 'o'; n--; } } }
+  if (spec.crystal) { let n = pickInt(r, spec.crystal); for (const i of blocks().sort(() => r() - 0.5)) { if (n <= 0) break; const c = cells[i]; if (c.k === 'n' && !c.ice && !c.bomb && !c.spawner) { cells[i] = { k: 'c', v: 0 }; n--; } } }
+  if (spec.bomb) { let n = pickInt(r, spec.bomb); for (const i of blocks().sort(() => r() - 0.5)) { if (n <= 0) break; const c = cells[i]; if (c.k === 'n' && !c.ice && c.v < 13 && !c.bomb) { c.bomb = pickInt(r, recipe.timer || [3, 5]); n--; } } }
+  if (spec.ice) { let n = pickInt(r, spec.ice); for (const i of blocks().sort(() => r() - 0.5)) { if (n <= 0) break; if (cells[i].k === 'n' && cells[i].v < 13 && !cells[i].bomb) { cells[i].ice = 1; n--; } } }
+  // goals
+  const present = {}; for (const c of cells) if (c && c.k === 'n') present[c.v] = (present[c.v] || 0) + 1;
+  const goals = [];
+  const opts = recipe.goals.slice().sort(() => r() - 0.5);
+  const want = pickInt(r, recipe.goalCount || [1, 1]);
+  for (const g of opts) {
+    if (goals.length >= want) break;
+    if (g.t === 'ice' && !cells.some(c => c && c.ice)) continue;
+    if (g.t === 'stone' && !cells.some(c => c && c.k === 's')) continue;
+    if (g.t === 'bomb' && !cells.some(c => c && c.bomb)) continue;
+    if (g.t === 'anchor' && !cells.some(c => c && c.k === 'a')) continue;
+    if (g.t === 'crystal' && !cells.some(c => c && c.k === 'c')) continue;
+    if (g.t === 'parity' && !cells.some(c => c && c.par)) continue;
+    if (g.t === 'prime' && !cells.some(c => c && c.prime)) continue;
+    if (g.t === 'spawner' && !cells.some(c => c && c.spawner)) continue;
+    if (g.t === 'break') {
+      const common = Object.entries(present).filter(([v, n]) => n >= 2 && +v <= 9).map(([v]) => +v);
+      const v = common.length && r() < 0.6 ? pick(r, common) : pickInt(r, [2, 8]);
+      if (goals.some(x => x.t === 'break' && x.v === v)) continue;
+      goals.push({ t: 'break', v, n: pickInt(r, g.n) });
+      if (g.pair && goals.length < want) { let v2 = pickInt(r, [2, 8]); if (v2 !== v) goals.push({ t: 'break', v: v2, n: pickInt(r, g.n) }); }
+      continue;
+    }
+    goals.push(g.n ? { t: g.t, n: pickInt(r, g.n) } : { t: g.t });
+  }
+  if (!goals.length) goals.push({ t: 'any', n: 10 });
+  const rows = [];
+  for (let y = h - 1; y >= 0; y--) {
+    const row = [];
+    for (let x = 0; x < w; x++) { const c = cells[y * w + x]; const tok = isHole(x, y) ? '#' : !c ? '.' : c.k === 's' ? 'S' : c.k === 'a' ? 'A' : c.k === 'c' ? 'C' : c.bomb ? `b${c.v}:${c.bomb}` : c.spawner ? `g${c.v}` : c.par ? `${c.par}${c.v}` : c.prime ? `p${c.v}` : (c.ice ? 'i' : '') + c.v;
+      row.push(tiles.has(y * w + x) && tok !== '#' ? 'x' + tok : tok); }
+    rows.push(row.join(' '));
+  }
+  const main = goals.map(g => g.t).find(t => TIPS[t]);
+  return { rows, goals, tip: recipe.nograv ? 'No gravity: blocks stay exactly where you put them.' : main ? TIPS[main] : null, ...(recipe.nograv ? { gravity: false } : {}) };
+}
+
+// sanity checks on a generated level; returns null if fine or a reason string
+function checkLevel(level) {
+  const s = L.createGame(level, [{ id: 1, type: 'd6' }], 1);
+  if (L.findMatches(s).length || L.findBursts(s).length) return 'starts with a clear';
+  const blocks = s.cells.filter(Boolean).length;
+  if (blocks < 4) return 'too empty';
+  for (let x = 0; x < s.w; x++) { let low = -1; for (let y = 0; y < s.h; y++) if (!L.isHole(s, x, y)) { low = y; break; } const c = L.at(s, x, low); if (c && c.k === 'a') return 'anchor starts at bottom'; }
+  let open = false; for (let x = 0; x < s.w; x++) if (L.landY(s, x) >= 0) open = true;
+  if (!open) return 'no room';
+  for (const g of s.goals) {
+    if (g.t === 'ice' && !g.n) return 'no ice';
+    if (g.t === 'stone' && !g.n) return 'no stone';
+    if (g.t === 'bomb' && !g.n) return 'no bombs';
+    if (g.t === 'anchor' && !g.n) return 'no anchors';
+    if (g.t === 'crystal' && !g.n) return 'no crystals';
+    if (g.t === 'parity' && !g.n) return 'no parity blocks';
+    if (g.t === 'prime' && !g.n) return 'no prime blocks';
+    if (g.t === 'spawner' && !g.n) return 'no spawners';
+  }
+  return null;
+}
+function similarity(a, b) {
+  if (a.rows.length !== b.rows.length || a.rows[0] !== undefined && a.rows[0].split(' ').length !== b.rows[0].split(' ').length) return 0;
+  let same = 0, tot = 0;
+  a.rows.forEach((row, i) => { const ta = row.split(' '), tb = b.rows[i].split(' '); ta.forEach((t, j) => { if (t === '.' && tb[j] === '.') return; tot++; if (t === tb[j]) same++; }); });
+  return tot ? same / tot : 1;
+}
+function levelName(env, r, used) {
+  const N = NAMES[env] || NAMES.meadow;
+  for (let i = 0; i < 40; i++) { const n = `${pick(r, N.a)} ${pick(r, N.n)}`; if (!used.has(n)) { used.add(n); return n; } }
+  return 'Mystery Board';
+}
+
+return { rng, NAMES, generateBoard, checkLevel, similarity, levelName };
+})();
+const BOT = (() => {
+// ===== Simulated player: used for tuning, level generation and (later) endless mode =====
+
+function mulberry(seed) { let a = seed | 0; return () => { a = (a + 0x6d2b79f5) | 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+
+function evalState(s) {
+  if (s.status === 'won') return 1e7 + s.score;
+  if (s.status === 'stuck') return -1e6;
+  let v = 0;
+  const gp = L.goalProgress(s);
+  for (const p of gp) {
+    if (p.g.t === 'clear') v -= p.cur * 120;
+    else v += Math.min(p.cur / Math.max(1, p.need), 1) * 1000;
+  }
+  v += s.score * 0.05;
+  const wantBurst = s.goals.some(g => g.t === 'burst' || g.t === 'stone');
+  const wantLines = s.goals.some(g => g.t === 'lines' || g.t === 'stone' || g.t === 'ice');
+  const wantBomb = s.goals.some(g => g.t === 'bomb');
+  const wantV = new Set(s.goals.filter(g => g.t === 'break').map(g => g.v));
+  let heights = 0, pairs = 0, near = 0;
+  for (let x = 0; x < s.w; x++) for (let y = 0; y < s.h; y++) {
+    const c = L.at(s, x, y); if (!c) continue;
+    heights += y + 1;
+    if (c.k === 'a') { v -= y * 60; heights -= y + 1; continue; }
+    if (c.k === 'c') { for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const n = L.at(s, x + dx, y + dy); if (n && n.k === 'n') { const m = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([ex, ey]) => { const o = L.at(s, x + dx + ex, y + dy + ey); return o && o.k === 'n' && o.v === n.v; }); if (m) v += 40; } } continue; }
+    if (c.k !== 'n') continue;
+    const r = L.at(s, x + 1, y), u = L.at(s, x, y + 1);
+    const w = wantV.has(c.v) ? 2 : 1;
+    if (r && r.k === 'n' && r.v === c.v) pairs += w;
+    if (u && u.k === 'n' && u.v === c.v) pairs += w;
+    if (c.v >= 14) near++;
+    if (c.bomb) { if (wantBomb && c.bomb <= 1) v -= 150; if (wantBomb) v += ((r && r.k === 'n' && r.v === c.v) || (u && u.k === 'n' && u.v === c.v)) ? 60 : 0; }
+  }
+  v -= heights * 4; v += pairs * 25 + (wantBurst ? near * 20 : 0);
+  if (wantLines) {
+    for (let y = 0; y < s.h; y++) {
+      let f = 0, n = 0;
+      for (let x = 0; x < s.w; x++) { if (L.isHole(s, x, y)) continue; n++; if (L.at(s, x, y)) f++; }
+      if (n) v += (f / n) ** 3 * 120;
+    }
+  }
+  return v;
+}
+
+function legalMoves(s) {
+  const out = [];
+  const tgts = [];
+  if (s.nograv) { for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) { const t = L.targetFor(s, x, y); if (t && t.kind === 'drop') tgts.push(t); } }
+  else for (let x = 0; x < s.w; x++) { const t = L.targetFor(s, x, s.h); if (t) tgts.push(t); }
+  for (let y = 0; y < s.h; y++) for (let x = 0; x < s.w; x++) if (L.at(s, x, y)) tgts.push({ kind: 'stack', x, y });
+  s.tray.forEach((d, ti) => {
+    if (d.placed) return;
+    const vals = L.has(d, 'mirror') ? [...new Set([d.value, d.sides + 1 - d.value])] : [d.value];
+    for (const v of vals) for (const t of tgts) if (L.canPlace(s, d, t, v)) out.push({ ti, t, v });
+  });
+  return out;
+}
+
+function scoreMove(s, m, rnd) {
+  const c = L.clone(s); L.place(c, m.ti, m.t, m.v);
+  return { c, e: evalState(c) + rnd() };
+}
+
+// depth 1: greedy. depth 2: re-check the top K first moves by their best follow-up within the same roll.
+function bestMove(s, rnd = Math.random, depth = 1, K = 3) {
+  const ms = legalMoves(s);
+  if (!ms.length) return null;
+  const scored = ms.map(m => ({ m, ...scoreMove(s, m, rnd) })).sort((a, b) => b.e - a.e);
+  if (depth < 2 || scored[0].e >= 1e7) return scored[0].m;
+  let best = scored[0], bestE = -Infinity;
+  for (const cand of scored.slice(0, K)) {
+    let e = cand.e;
+    if (cand.c.status === 'place') {
+      const ms2 = legalMoves(cand.c);
+      let b2 = -Infinity;
+      for (const m2 of ms2) { const r = scoreMove(cand.c, m2, rnd); if (r.e > b2) b2 = r.e; }
+      if (ms2.length) e = b2;
+    }
+    if (e > bestE) { bestE = e; best = cand; }
+  }
+  return best.m;
+}
+
+function playGame(level, dice, seed, depth = 1) {
+  const rnd = mulberry(seed ^ 0x5bd1e995);
+  const s = L.createGame(level, dice, seed);
+  for (let guard = 0; guard < 600; guard++) {
+    if (s.status === 'won' || s.status === 'lost' || s.status === 'stuck') break;
+    if (s.status === 'roll') { L.roll(s); continue; }
+    // use a reroll power on the worst die if no move makes progress
+    const m = bestMove(s, rnd, depth);
+    if (!m) { s.status = 'stuck'; break; }
+    L.place(s, m.ti, m.t, m.v);
+  }
+  return s;
+}
+
+function parseDice(list) {
+  return list.map((t, i) => { const [type, emps] = t.split(':'); const [emp, emp2] = (emps || '').split('+'); return { id: i + 1, type, emp: emp || null, emp2: emp2 || null }; });
+}
+
+function simulate(level, diceList, n = 300, depth = 1, seed0 = 1000) {
+  const dice = parseDice(diceList);
+  let wins = 0; const scores = [], left = [];
+  for (let i = 0; i < n; i++) {
+    const s = playGame(level, dice, seed0 + i * 7919, depth);
+    if (s.status === 'won') { wins++; scores.push(s.score + s.rollsLeft * 150); left.push(s.rollsLeft); }
+  }
+  scores.sort((a, b) => a - b);
+  const q = p => (scores.length ? scores[Math.floor(p * (scores.length - 1))] : 0);
+  return { win: wins / n, p50: q(0.5), p80: q(0.8), rollsLeft: left.length ? left.reduce((a, b) => a + b, 0) / left.length : 0 };
+}
+
+return { evalState, legalMoves, bestMove, playGame, parseDice, simulate };
 })();
 // ---- levels ----
 // AUTO-GENERATED by tools/gen.mjs. Do not edit by hand.
@@ -2243,6 +2577,738 @@ const GENERATED = [
    "C 4 C 4 . 11"
   ],
   "bot": 43
+ },
+ {
+  "key": "g9-2-902000",
+  "chapter": 9,
+  "slot": 2,
+  "gen": true,
+  "tier": "normal",
+  "name": "Bubbly Lagoon",
+  "rolls": 4,
+  "star3": 3100,
+  "tip": "EVEN blocks only take even dice, ODD blocks only odd dice.",
+  "goals": [
+   {
+    "t": "parity"
+   },
+   {
+    "t": "any",
+    "n": 22
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . .",
+   ". 11 . . 4 .",
+   ". 2 . . 6 .",
+   ". 3 e9 . o12 .",
+   "9 1 5 9 7 ."
+  ],
+  "bot": 60
+ },
+ {
+  "key": "g9-3-903000",
+  "chapter": 9,
+  "slot": 3,
+  "gen": true,
+  "tier": "normal",
+  "name": "Kelp Pool",
+  "rolls": 4,
+  "star3": 3400,
+  "tip": "EVEN blocks only take even dice, ODD blocks only odd dice.",
+  "goals": [
+   {
+    "t": "parity"
+   },
+   {
+    "t": "ice"
+   },
+   {
+    "t": "any",
+    "n": 28
+   }
+  ],
+  "rows": [
+   ". . . . .",
+   ". . . . .",
+   ". o11 . . .",
+   ". 2 . . .",
+   ". 8 . 1 4",
+   ". 12 i10 i2 e7"
+  ],
+  "bot": 57
+ },
+ {
+  "key": "g9-4-908052",
+  "chapter": 9,
+  "slot": 4,
+  "gen": true,
+  "tier": "hard",
+  "name": "Bubbly Shallows",
+  "rolls": 4,
+  "star3": 4100,
+  "tip": "Fill a row so it glows gold, then match inside it.",
+  "goals": [
+   {
+    "t": "lines",
+    "n": 5
+   },
+   {
+    "t": "parity"
+   }
+  ],
+  "rows": [
+   ". . . . .",
+   ". . . . .",
+   ". . . . .",
+   ". o9 . . .",
+   ". 11 . o5 2",
+   ". 6 . 6 5",
+   ". e5 . 1 11"
+  ],
+  "bot": 36
+ },
+ {
+  "key": "g9-5-905000",
+  "chapter": 9,
+  "slot": 5,
+  "gen": true,
+  "tier": "breather",
+  "name": "Tidal Shallows",
+  "rolls": 5,
+  "star3": 1900,
+  "tip": "EVEN blocks only take even dice, ODD blocks only odd dice.",
+  "goals": [
+   {
+    "t": "parity"
+   }
+  ],
+  "rows": [
+   ". . . . .",
+   ". . . . .",
+   "7 . . . .",
+   "o5 . . . .",
+   "6 . 5 . .",
+   "4 . 5 9 o5"
+  ],
+  "bot": 100
+ },
+ {
+  "key": "g9-6-906000",
+  "chapter": 9,
+  "slot": 6,
+  "gen": true,
+  "tier": "normal",
+  "name": "Sandy Shoal",
+  "rolls": 4,
+  "star3": 2400,
+  "tip": "Clear blocks touching a crystal to break it free.",
+  "goals": [
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "parity"
+   },
+   {
+    "t": "any",
+    "n": 10
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . .",
+   "12 . 6 . . 11",
+   "11 . e4 . . C",
+   "3 12 6 . 4 o8"
+  ],
+  "bot": 81
+ },
+ {
+  "key": "g9-7-907000",
+  "chapter": 9,
+  "slot": 7,
+  "gen": true,
+  "tier": "normal",
+  "name": "Shell Cove",
+  "rolls": 5,
+  "star3": 4400,
+  "tip": "EVEN blocks only take even dice, ODD blocks only odd dice.",
+  "goals": [
+   {
+    "t": "parity"
+   },
+   {
+    "t": "tile",
+    "n": 4
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   "# . . . . #",
+   "# # 10 8 # #",
+   ". . 11 1 . 6",
+   "x5 . 6 2 . xe10",
+   "4 6 3 9 . e8"
+  ],
+  "bot": 68
+ },
+ {
+  "key": "g9-8-908000",
+  "chapter": 9,
+  "slot": 8,
+  "gen": true,
+  "tier": "normal",
+  "name": "Shell Shoal",
+  "rolls": 4,
+  "star3": 2500,
+  "tip": "EVEN blocks only take even dice, ODD blocks only odd dice.",
+  "goals": [
+   {
+    "t": "parity"
+   },
+   {
+    "t": "anchor"
+   },
+   {
+    "t": "any",
+    "n": 13
+   }
+  ],
+  "rows": [
+   ". . . . .",
+   ". . . . .",
+   "1 . . A .",
+   "o3 . . 6 .",
+   "6 10 e7 1 .",
+   "1 4 9 e6 ."
+  ],
+  "bot": 82
+ },
+ {
+  "key": "g9-9-909000",
+  "chapter": 9,
+  "slot": 9,
+  "gen": true,
+  "tier": "hard",
+  "name": "Shell Garden",
+  "rolls": 4,
+  "star3": 3100,
+  "tip": "Match bombs before their timers run out.",
+  "goals": [
+   {
+    "t": "bomb"
+   },
+   {
+    "t": "parity"
+   },
+   {
+    "t": "any",
+    "n": 25
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . 7 . .",
+   ". . . o2 . .",
+   ". . . o1 7 .",
+   ". . 3 7 12 .",
+   "e2 b8:5 e8 11 1 ."
+  ],
+  "bot": 30
+ },
+ {
+  "key": "g10-2-1002000",
+  "chapter": 10,
+  "slot": 2,
+  "gen": true,
+  "tier": "normal",
+  "name": "Electric Arcade",
+  "rolls": 4,
+  "star3": 3100,
+  "tip": "Stack prime-locked blocks to a prime number to unlock them.",
+  "goals": [
+   {
+    "t": "prime"
+   },
+   {
+    "t": "any",
+    "n": 22
+   }
+  ],
+  "rows": [
+   ". . . . .",
+   ". . . . .",
+   ". . . . 11",
+   ". . . . 11",
+   ". . . . 1",
+   ". . 9 12 6",
+   ". . p9 4 1"
+  ],
+  "bot": 82
+ },
+ {
+  "key": "g10-3-1003000",
+  "chapter": 10,
+  "slot": 3,
+  "gen": true,
+  "tier": "normal",
+  "name": "Voltage Relay",
+  "rolls": 4,
+  "star3": 2700,
+  "tip": "Spawners add a block every roll. Match them to stop them.",
+  "goals": [
+   {
+    "t": "spawner"
+   },
+   {
+    "t": "prime"
+   },
+   {
+    "t": "any",
+    "n": 10
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . 9 . .",
+   "p4 7 . 2 . .",
+   "4 3 . g6 . .",
+   "p10 5 . 11 . ."
+  ],
+  "bot": 82
+ },
+ {
+  "key": "g10-4-1005013",
+  "chapter": 10,
+  "slot": 4,
+  "gen": true,
+  "tier": "hard",
+  "name": "Neon Signal",
+  "rolls": 4,
+  "star3": 5200,
+  "tip": "Stack prime-locked blocks to a prime number to unlock them.",
+  "goals": [
+   {
+    "t": "prime"
+   },
+   {
+    "t": "lines",
+    "n": 6
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". 8 4 . . .",
+   ". 4 6 . . .",
+   ". p9 9 11 . .",
+   ". 7 11 8 . .",
+   "12 6 p12 p8 . ."
+  ],
+  "bot": 43
+ },
+ {
+  "key": "g10-5-1005000",
+  "chapter": 10,
+  "slot": 5,
+  "gen": true,
+  "tier": "breather",
+  "name": "Synth Switch",
+  "rolls": 5,
+  "star3": 2600,
+  "tip": "Stack prime-locked blocks to a prime number to unlock them.",
+  "goals": [
+   {
+    "t": "prime"
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   "5 . . . 6 .",
+   "12 . . . 12 .",
+   "p9 11 . . 4 .",
+   "10 5 4 . 9 .",
+   "2 7 7 3 4 ."
+  ],
+  "bot": 100
+ },
+ {
+  "key": "g10-6-1006000",
+  "chapter": 10,
+  "slot": 6,
+  "gen": true,
+  "tier": "normal",
+  "name": "Midnight Circuit",
+  "rolls": 4,
+  "star3": 3400,
+  "tip": "Stack prime-locked blocks to a prime number to unlock them.",
+  "goals": [
+   {
+    "t": "prime"
+   },
+   {
+    "t": "tile",
+    "n": 4
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   ". . . . . .",
+   "1 . . . . 3",
+   "7 . . . . xp4",
+   "5 . . xp6 9 p4",
+   "5 . . 6 10 2"
+  ],
+  "bot": 56
+ },
+ {
+  "key": "g10-7-1007000",
+  "chapter": 10,
+  "slot": 7,
+  "gen": true,
+  "tier": "normal",
+  "name": "Midnight Relay",
+  "rolls": 4,
+  "star3": 3300,
+  "tip": "Stack prime-locked blocks to a prime number to unlock them.",
+  "goals": [
+   {
+    "t": "prime"
+   },
+   {
+    "t": "bomb"
+   },
+   {
+    "t": "any",
+    "n": 28
+   }
+  ],
+  "rows": [
+   ". . . . .",
+   ". . . . .",
+   ". . . . .",
+   ". . 10 3 12",
+   "10 . p8 b3:3 1",
+   "3 . 8 5 p8"
+  ],
+  "bot": 83
+ },
+ {
+  "key": "g10-8-1008000",
+  "chapter": 10,
+  "slot": 8,
+  "gen": true,
+  "tier": "normal",
+  "name": "Neon Switch",
+  "rolls": 4,
+  "star3": 2600,
+  "tip": "Stack prime-locked blocks to a prime number to unlock them.",
+  "goals": [
+   {
+    "t": "prime"
+   },
+   {
+    "t": "parity"
+   },
+   {
+    "t": "any",
+    "n": 10
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   "p1 . . . . .",
+   "6 . . . 12 .",
+   "10 11 . . p4 .",
+   "7 5 . . e7 e2"
+  ],
+  "bot": 80
+ },
+ {
+  "key": "g10-9-1009000",
+  "chapter": 10,
+  "slot": 9,
+  "gen": true,
+  "tier": "hard",
+  "name": "Pixel Grid",
+  "rolls": 4,
+  "star3": 3800,
+  "tip": "Stack prime-locked blocks to a prime number to unlock them.",
+  "goals": [
+   {
+    "t": "prime"
+   },
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "any",
+    "n": 27
+   }
+  ],
+  "rows": [
+   ". . . . . .",
+   ". . . . . .",
+   "9 . . . . .",
+   "11 . . . . 10",
+   "p6 . . . . 7",
+   "6 . . . . C",
+   "p8 p9 11 1 . p9"
+  ],
+  "bot": 45
+ },
+ {
+  "key": "g11-2-1102000",
+  "chapter": 11,
+  "slot": 2,
+  "gen": true,
+  "tier": "normal",
+  "name": "Amber Trail",
+  "rolls": 4,
+  "star3": 3200,
+  "tip": "No gravity: blocks stay exactly where you put them.",
+  "goals": [
+   {
+    "t": "any",
+    "n": 29
+   }
+  ],
+  "rows": [
+   ". . 2 . .",
+   ". 8 . . .",
+   ". 9 . . 5",
+   "7 1 . . .",
+   "3 1 9 . .",
+   ". . 2 . .",
+   "10 . . . 1"
+  ],
+  "gravity": false,
+  "bot": 50
+ },
+ {
+  "key": "g11-3-1103000",
+  "chapter": 11,
+  "slot": 3,
+  "gen": true,
+  "tier": "normal",
+  "name": "Hidden Dunes",
+  "rolls": 4,
+  "star3": 3400,
+  "tip": "No gravity: blocks stay exactly where you put them.",
+  "goals": [
+   {
+    "t": "crystal"
+   },
+   {
+    "t": "any",
+    "n": 28
+   }
+  ],
+  "rows": [
+   ". . 2 . C",
+   ". . . 8 10",
+   ". . 10 . C",
+   ". 5 1 . .",
+   ". . 11 . C",
+   ". 6 2 . ."
+  ],
+  "gravity": false,
+  "bot": 72
+ },
+ {
+  "key": "g11-4-1107039",
+  "chapter": 11,
+  "slot": 4,
+  "gen": true,
+  "tier": "hard",
+  "name": "Rolling Dunes",
+  "rolls": 4,
+  "star3": 5200,
+  "tip": "No gravity: blocks stay exactly where you put them.",
+  "goals": [
+   {
+    "t": "lines",
+    "n": 6
+   }
+  ],
+  "rows": [
+   ". . . . .",
+   ". . 8 . 9",
+   ". 6 5 10 10",
+   ". 5 . . 9",
+   ". . . . 12",
+   ". 3 . . .",
+   ". 5 . . 10"
+  ],
+  "gravity": false,
+  "bot": 47
+ },
+ {
+  "key": "g11-5-1105000",
+  "chapter": 11,
+  "slot": 5,
+  "gen": true,
+  "tier": "breather",
+  "name": "Rolling Mirage",
+  "rolls": 5,
+  "star3": 1700,
+  "tip": "No gravity: blocks stay exactly where you put them.",
+  "goals": [
+   {
+    "t": "any",
+    "n": 6
+   }
+  ],
+  "rows": [
+   "2 . . . . 11",
+   "11 . . . . .",
+   "6 . . . . .",
+   ". . . . 9 2",
+   "10 . . 11 . .",
+   ". . . 4 7 .",
+   ". . . 6 . ."
+  ],
+  "gravity": false,
+  "bot": 100
+ },
+ {
+  "key": "g11-6-1106000",
+  "chapter": 11,
+  "slot": 6,
+  "gen": true,
+  "tier": "normal",
+  "name": "Shifting Mirage",
+  "rolls": 4,
+  "star3": 3000,
+  "tip": "Stack prime-locked blocks to a prime number to unlock them.",
+  "goals": [
+   {
+    "t": "prime"
+   },
+   {
+    "t": "parity"
+   },
+   {
+    "t": "any",
+    "n": 13
+   }
+  ],
+  "rows": [
+   ". . . . .",
+   ". . . . .",
+   ". . . 5 .",
+   ". . . p10 .",
+   ". 9 . 6 .",
+   ". e4 4 p9 .",
+   "e10 9 10 7 ."
+  ],
+  "bot": 80
+ },
+ {
+  "key": "g11-7-1107000",
+  "chapter": 11,
+  "slot": 7,
+  "gen": true,
+  "tier": "normal",
+  "name": "Sunbaked Sands",
+  "rolls": 4,
+  "star3": 3800,
+  "tip": "No gravity: blocks stay exactly where you put them.",
+  "goals": [
+   {
+    "t": "bomb"
+   },
+   {
+    "t": "any",
+    "n": 23
+   }
+  ],
+  "rows": [
+   ". . . 11 .",
+   ". . . . .",
+   ". . b5:5 . .",
+   ". . 5 2 .",
+   "12 . 11 10 b8:3",
+   ". . . 10 ."
+  ],
+  "gravity": false,
+  "bot": 80
+ },
+ {
+  "key": "g11-8-1108000",
+  "chapter": 11,
+  "slot": 8,
+  "gen": true,
+  "tier": "normal",
+  "name": "Golden Mesa",
+  "rolls": 4,
+  "star3": 3800,
+  "tip": "No gravity: blocks stay exactly where you put them.",
+  "goals": [
+   {
+    "t": "prime"
+   },
+   {
+    "t": "tile",
+    "n": 4
+   }
+  ],
+  "rows": [
+   "11 . . . .",
+   ". . . 8 1",
+   ". 6 . . p6",
+   "x. 8 . . 7",
+   "11 12 . x1 .",
+   "p10 . . 4 4",
+   ". x. . . ."
+  ],
+  "gravity": false,
+  "bot": 83
+ },
+ {
+  "key": "g11-9-1110013",
+  "chapter": 11,
+  "slot": 9,
+  "gen": true,
+  "tier": "hard",
+  "name": "Shifting Butte",
+  "rolls": 4,
+  "star3": 5000,
+  "tip": "No gravity: blocks stay exactly where you put them.",
+  "goals": [
+   {
+    "t": "lines",
+    "n": 4
+   },
+   {
+    "t": "parity"
+   },
+   {
+    "t": "crystal"
+   }
+  ],
+  "rows": [
+   "11 . . . C C",
+   "10 . . 11 . 8",
+   "o9 . . . . 9",
+   ". . . 10 1 .",
+   ". . . . . e1",
+   "7 . . 1 2 o12",
+   "12 . . . . ."
+  ],
+  "gravity": false,
+  "bot": 34
  }
 ];
 
@@ -2637,6 +3703,86 @@ const HAND_LEVELS = [
       '1 b8:5 . 3 b2:4 6',
     ],
   },
+  {
+    key: 'tidepool', name: 'Tide Pool', rolls: 4, star3: 1700, teach: 'parity', reward: { emp: 'loaded' },
+    tip: 'EVEN blocks take only even dice, ODD blocks only odd dice.',
+    goals: [{ t: 'parity' }],
+    rows: [
+      '. . . . .',
+      '. . . . .',
+      '. . . . .',
+      '. . . . .',
+      'e4 . . o3 .',
+      'e2 6 . o5 1',
+    ],
+  },
+  {
+    key: 'coralcrown', name: 'Coral Crown', rolls: 4, star3: 3700, reward: { slot: 1 },
+    tip: 'Boss level! Win to unlock a 6th loadout slot.',
+    goals: [{ t: 'parity' }, { t: 'crystal' }, { t: 'ice' }, { t: 'lines', n: 4 }, { t: 'any', n: 36 }],
+    rows: [
+      '. . . . . .',
+      '. . . . . .',
+      '. . . . . .',
+      '. C . . o7 .',
+      'e8 o3 . 6 C e2',
+      '4 i5 . o9 2 6',
+      'o1 e6 . 3 i8 e4',
+    ],
+  },
+  {
+    key: 'primetime', name: 'Prime Time', rolls: 4, star3: 1500, teach: 'prime', reward: { emp: 'chain' },
+    tip: 'Stack onto a padlocked block until its number is prime.',
+    goals: [{ t: 'prime' }],
+    rows: [
+      '. . . . .',
+      '. . . . .',
+      '. . . . .',
+      '. . . . .',
+      'p1 . . . .',
+      '2 p4 5 5 .',
+    ],
+  },
+  {
+    key: 'neoncore', name: 'Neon Core', rolls: 4, star3: 4300, reward: { die: 'd20' },
+    tip: 'Boss level! Unlock the primes and stop the spawners.',
+    goals: [{ t: 'prime' }, { t: 'spawner' }, { t: 'any', n: 30 }],
+    rows: [
+      '. . . . . .',
+      '. . . . . .',
+      '. . . . . .',
+      '. p6 . . p9 .',
+      'x7 4 . p8 2 x3',
+      'g5 p10 . 7 g3 1',
+      '2 9 . x5 6 p4',
+    ],
+  },
+  {
+    key: 'stillsands', name: 'Still Sands', rolls: 4, star3: 1000, teach: 'nograv', gravity: false, reward: { emp: 'split' },
+    tip: 'No gravity: put each die exactly where it completes a match.',
+    goals: [{ t: 'any', n: 6 }],
+    rows: [
+      '. . . . .',
+      '. 4 . 6 .',
+      '. 4 . . .',
+      '. . . 6 .',
+      '2 . . . 5',
+    ],
+  },
+  {
+    key: 'mirage', name: 'Mirage', rolls: 4, star3: 3400, gravity: false, reward: { endless: true },
+    tip: 'Boss level! No gravity, crystals, primes and parity. Beat it to unlock Endless Climb!',
+    goals: [{ t: 'crystal' }, { t: 'prime' }, { t: 'parity' }, { t: 'any', n: 22 }],
+    rows: [
+      '. . . . . .',
+      '. 3 . C . 7',
+      'e4 . 5 . o9 .',
+      '. 3 . p8 . 7',
+      'C . 5 . e6 .',
+      '. 2 . . . C',
+      '4 . o1 . 2 .',
+    ],
+  },
 ];
 
 // ===== chapters =====
@@ -2657,6 +3803,12 @@ const CHAPTERS = [
     plan: ['geode', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'crystalheart'] },
   { n: 8, name: 'Volcano Ash Storm', env: 'volcano', variant: 'ash', names: 'ash', blurb: 'Bombs and crystals in a storm of ash. Two powers per die!',
     plan: ['ashfall', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'cinderthrone'] },
+  { n: 9, name: 'Reef', env: 'reef', variant: 'shallows', names: 'reef', blurb: 'EVEN and ODD blocks under the waves.',
+    plan: ['tidepool', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'coralcrown'] },
+  { n: 10, name: 'Clockwork Neon', env: 'clockwork', variant: 'neon', names: 'neon', blurb: 'Prime-locked blocks in a glowing machine city.',
+    plan: ['primetime', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'neoncore'] },
+  { n: 11, name: 'Desert Dunes', env: 'desert', variant: 'dunes', names: 'dunes', blurb: 'No gravity: every die goes exactly where you put it.',
+    plan: ['stillsands', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'gen', 'mirage'] },
 ];
 // levels parked for later chapters
 const PARKED = [];
@@ -3003,7 +4155,26 @@ ENVS.crystal = {
   frame: '#6a4aa0', gem: '#c58bff', leaf: ['#c58bff', '#7ef0ff', '#ff8bd8'], trunk: '#e6dcff', rock: '#5a4a7a', flower: ['#c58bff', '#7ef0ff', '#ffd6ff'],
   particle: '#d7b8ff', fall: -0.08, firefly: true, psize: 0.18, felt: '#2a1f45', tag: '#8a5cff', sun: '#d8c8ff', sunI: 1.6, hemiI: 1.3, hemiSky: '#c8b8ff',
 };
+ENVS.reef = {
+  env: 'reef', props: 'reef', bgTop: '#14a7c4', bgBottom: '#bdf4ff', grass: '#f2d9a0', dirt: '#d9b878', dirtDark: '#a88a5a', panel: '#0f3550', cell: '#174a6c', cellEdge: '#3fd0e0',
+  frame: '#e8c68a', gem: '#ff7eb6', leaf: ['#ff7eb6', '#ff9a5a', '#b78bff'], trunk: '#2fbf71', rock: '#cfc3a6', flower: ['#ffffff', '#ffd6e8', '#ffe9a8'],
+  particle: '#e6fbff', fall: -0.5, drift: 0.05, psize: 0.2, felt: '#0f3550', tag: '#14a7c4', sun: '#e0fbff', sunI: 2.0, hemiI: 1.6, hemiSky: '#c8f6ff',
+};
+ENVS.desert = {
+  env: 'desert', props: 'desert', bgTop: '#ffb86b', bgBottom: '#fff1d0', grass: '#f0c27a', dirt: '#d49a5a', dirtDark: '#a86f3a', panel: '#3a2418', cell: '#553423', cellEdge: '#e0a050',
+  frame: '#c98a4a', gem: '#3fd0ff', leaf: ['#5fae4a', '#4a9a3a', '#7cc45a'], trunk: '#a8734a', rock: '#d9a070', flower: ['#ff6b8b', '#ffd23f', '#ffffff'],
+  particle: '#f5deb3', fall: 0.05, drift: 0.7, psize: 0.14, felt: '#5a3a2a', tag: '#e0903a', sun: '#fff0c8', sunI: 2.6, hemiI: 1.5,
+};
 const VARIANTS = {
+  reef: {
+    shallows: { label: 'Shallows' },
+    deep: { label: 'Deep', bgTop: '#020a2a', bgBottom: '#0b3a6a', particle: '#7ef0ff', firefly: true, fall: -0.1, sunI: 1.1, hemiI: 1.0, leaf: ['#ff4fd8', '#7ef0ff', '#b78bff'], tag: '#2f6bff' },
+  },
+  desert: {
+    dunes: { label: 'Dunes' },
+    oasis: { label: 'Oasis night', bgTop: '#1a1640', bgBottom: '#4a3a7a', particle: '#ffe066', firefly: true, fall: 0, drift: 0, sunI: 1.2, hemiI: 1.0, hemiSky: '#b9a8ff', tag: '#6a5aff' },
+    sandstorm: { label: 'Sandstorm', bgTop: '#d9b07a', bgBottom: '#f2dcb0', drift: 2.6, fall: 0.2, psize: 0.2, sunI: 2.0, tag: '#b07a3a' },
+  },
   crystal: {
     amethyst: { label: 'Amethyst' },
     emerald: { label: 'Emerald', bgTop: '#062a22', bgBottom: '#1f7a5a', leaf: ['#4fe0a0', '#a8ffd8', '#2fbf8a'], particle: '#a8ffd8', cellEdge: '#4fe0a0', gem: '#4fe0a0', tag: '#2fbf8a', hemiSky: '#c8ffe8' },
@@ -3058,7 +4229,34 @@ function crystalProp(parent, x, z, s, th) {
   addMesh(new THREE.SphereGeometry(0.2, 6, 3, 0, Math.PI * 2, 0, Math.PI / 2), flatMat(th.leaf[1], { emissive: th.leaf[1], emissiveIntensity: 1.2 }), g, [0.45, 0.33, 0.2]);
   parent.add(g); return g;
 }
-function decorProp(parent, x, z, s, th) { return th.props === 'crystal' ? crystalProp(parent, x, z, s, th) : th.props === 'volcano' ? basalt(parent, x, z, s, th) : th.props === 'clockwork' ? gearProp(parent, x, z, s, th) : tree(parent, x, z, s, th); }
+function reefProp(parent, x, z, s, th) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.scale.setScalar(s);
+  for (let i = 0; i < 3; i++) {
+    const c = th.leaf[i % th.leaf.length], h = rand(0.4, 0.9), m = flatMat(c, { emissive: c, emissiveIntensity: 0.25 });
+    const br = addMesh(new THREE.CylinderGeometry(0.05, 0.08, h, 5), m, g, [rand(-0.25, 0.25), h / 2, rand(-0.2, 0.2)], { rot: [rand(-0.4, 0.4), 0, rand(-0.5, 0.5)] });
+    addMesh(new THREE.IcosahedronGeometry(0.1, 0), m, g, [br.position.x + Math.sin(-br.rotation.z) * h / 2, h, br.position.z]);
+  }
+  for (let i = 0; i < 2; i++) {
+    const kelp = new THREE.Group(); kelp.position.set(0.4 + i * 0.15, 0, -0.1 + i * 0.2);
+    for (let k = 0; k < 4; k++) addMesh(new THREE.BoxGeometry(0.06, 0.32, 0.03), flatMat(th.trunk), kelp, [0, 0.16 + k * 0.3, 0], { rot: [0, 0, (k % 2 ? 1 : -1) * 0.15] });
+    g.add(kelp); world.props.push({ o: kelp, kind: 'sway', ph: rand(0, 6) });
+  }
+  parent.add(g); return g;
+}
+function desertProp(parent, x, z, s, th) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.scale.setScalar(s);
+  const m = flatMat(th.leaf[0]);
+  addMesh(new THREE.CylinderGeometry(0.14, 0.16, 1.3, 7), m, g, [0, 0.65, 0]);
+  addMesh(new THREE.SphereGeometry(0.14, 7, 3, 0, Math.PI * 2, 0, Math.PI / 2), m, g, [0, 1.3, 0]);
+  for (const sd of [-1, 1]) {
+    const hgt = rand(0.5, 0.85);
+    addMesh(new THREE.CylinderGeometry(0.08, 0.08, 0.28, 6), m, g, [sd * 0.22, hgt, 0], { rot: [0, 0, Math.PI / 2] });
+    addMesh(new THREE.CylinderGeometry(0.08, 0.09, 0.42, 6), m, g, [sd * 0.34, hgt + 0.2, 0]);
+  }
+  addMesh(new THREE.IcosahedronGeometry(0.07, 0), flatMat(th.flower[0], { emissive: th.flower[0], emissiveIntensity: 0.4 }), g, [0, 1.42, 0]);
+  parent.add(g); return g;
+}
+function decorProp(parent, x, z, s, th) { return th.props === 'reef' ? reefProp(parent, x, z, s, th) : th.props === 'desert' ? desertProp(parent, x, z, s, th) : th.props === 'crystal' ? crystalProp(parent, x, z, s, th) : th.props === 'volcano' ? basalt(parent, x, z, s, th) : th.props === 'clockwork' ? gearProp(parent, x, z, s, th) : tree(parent, x, z, s, th); }
 function gearMesh(r, teeth, color, depth = 0.12) {
   const g = new THREE.Group(), m = flatMat(color, { metalness: 0.55, roughness: 0.35 });
   const disc = new THREE.Mesh(new THREE.CylinderGeometry(r, r, depth, Math.max(8, teeth)), m); disc.rotation.x = Math.PI / 2; disc.castShadow = true; g.add(disc);
@@ -3137,6 +4335,21 @@ function buildWorld(th, bw, bh, nDice = 3) {
     const x = rand(-R + 0.4, R - 0.4), z = rand(0.75, 1.7);
     const fl = addMesh(new THREE.TetrahedronGeometry(rand(0.05, 0.09), 0), flatMat(th.flower[i % th.flower.length], { emissive: th.flower[i % th.flower.length], emissiveIntensity: 0.15 }), W, [x, 0.06, z], { rot: [rand(0, 3), rand(0, 3), 0], cast: false });
     world.props.push({ o: fl, kind: 'spin', ph: rand(0, 6) });
+  }
+  if (th.props === 'reef') {
+    for (let i = 0; i < 6; i++) {
+      const f = new THREE.Group(), c = th.leaf[i % 3];
+      const bd = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.5, 5), flatMat(c, { emissive: c, emissiveIntensity: 0.3 })); bd.rotation.z = -Math.PI / 2; f.add(bd);
+      const tail = new THREE.Mesh(new THREE.ConeGeometry(0.14, 0.2, 3), flatMat(c)); tail.rotation.z = Math.PI / 2; tail.position.x = -0.32; f.add(tail);
+      f.position.set(rand(-10, 10), rand(1, 10), rand(-12, -4)); W.add(f); world.props.push({ o: f, kind: 'fish', sp: rand(0.6, 1.4) * (i % 2 ? 1 : -1), ph: rand(0, 6), y: f.position.y });
+      if (i % 2 === 0) f.rotation.y = Math.PI;
+    }
+  }
+  if (th.props === 'desert') {
+    [[-9, -16, 5, 3], [8, -18, 7, 4], [2, -24, 9, 5], [-14, -22, 6, 6]].forEach(([x, z, w, h]) => {
+      addMesh(new THREE.CylinderGeometry(w * 0.45, w * 0.55, h, 7), flatMat('#c9784a'), W, [x, h / 2 - 2.5, z], { cast: false, receive: false });
+      addMesh(new THREE.CylinderGeometry(w * 0.47, w * 0.47, 0.3, 7), flatMat('#d98a5a'), W, [x, h - 2.35, z], { cast: false, receive: false });
+    });
   }
   if (th.props === 'crystal') {
     [[-8, -16, 9], [7, -18, 12], [-3, -22, 14], [11, -14, 7]].forEach(([x, z, h], i) => {
@@ -3418,6 +4631,8 @@ function makeBlockView(b, x, y) {
   if (b.bomb) addBomb(v);
   if (b.spawner) addSpawner(v);
   if (b.chain) setChain(v);
+  if (b.par) addParity(v, b.par);
+  if (b.prime) addPrime(v);
   if (b.blaze) setBlaze(v, true);
   cellPos(x, y, g.position); boardGroup.add(g); views.set(b.id, v);
   return v;
@@ -3469,6 +4684,36 @@ function addBomb(v) {
   badge.position.set(-0.3, 0.3, 0.5); badge.scale.setScalar(0.36); badge.renderOrder = 4;
   v.g.add(f, badge); v.bombParts = { f, spark, badge };
 }
+const pillCache = {};
+function pillTex(text, bg) {
+  const key = text + bg;
+  return pillCache[key] || (pillCache[key] = canvasTex(128, (g) => {
+    g.fillStyle = bg; roundRect(g, 6, 40, 116, 48, 22); g.fill();
+    g.font = `700 32px ${FONT}`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(text, 64, 66);
+  }));
+}
+const lockTex = canvasTex(64, (g) => {
+  g.fillStyle = '#2b2235'; g.beginPath(); g.arc(32, 32, 30, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = '#ffd23f'; g.lineWidth = 6; g.beginPath(); g.arc(32, 26, 10, Math.PI, 0); g.stroke();
+  g.fillStyle = '#ffd23f'; g.fillRect(18, 26, 28, 20);
+});
+function addParity(v, par) {
+  const m = new THREE.Sprite(new THREE.SpriteMaterial({ map: pillTex(par === 'e' ? 'EVEN' : 'ODD', par === 'e' ? '#2f8cff' : '#ff8a2a'), transparent: true }));
+  m.position.set(0, -0.36, 0.5); m.scale.setScalar(0.5); m.renderOrder = 4; v.g.add(m); v.parMark = m;
+}
+function addPrime(v) {
+  const lock = new THREE.Sprite(new THREE.SpriteMaterial({ map: lockTex, transparent: true })); lock.position.set(0.3, 0.3, 0.5); lock.scale.setScalar(0.32); lock.renderOrder = 4;
+  const pill = new THREE.Sprite(new THREE.SpriteMaterial({ map: pillTex('PRIME', '#c9961a'), transparent: true })); pill.position.set(0, -0.36, 0.5); pill.scale.setScalar(0.5); pill.renderOrder = 4;
+  v.g.add(lock, pill); v.primeParts = { lock, pill }; updatePrime(v);
+}
+function updatePrime(v) {
+  if (!v.primeParts) return;
+  const locked = !L.isPrime(v.val);
+  v.primeParts.lock.visible = locked;
+  if (v.label) v.label.material.color.set(locked ? 0x8a8a8a : 0xe2e2e2);
+  if (v.k === 'n' && !v.glow) { v.body.material.emissive.set(locked ? '#000000' : '#7a5a00'); v.body.material.emissiveIntensity = locked ? 1 : 0.5; }
+  return locked;
+}
 function setChain(v) {
   if (v.chainMark) return;
   const m = new THREE.Sprite(new THREE.SpriteMaterial({ map: boltTex, transparent: true })); m.position.set(0.3, 0.3, 0.5); m.scale.setScalar(0.3); m.renderOrder = 4;
@@ -3494,6 +4739,7 @@ function setVal(v, val) {
   if (v.k !== 'n') return;
   v.body.material.color.copy(valColor(clamp(val, 1, 20)));
   if (v.label) v.label.material.map = labelTex(val);
+  if (v.primeParts) updatePrime(v);
 }
 function syncBoard() {
   for (const v of views.values()) boardGroup.remove(v.g);
@@ -3533,7 +4779,7 @@ function showPreview(ti, tgt) {
   ghostBody.material.color.copy(!pv.ok ? new THREE.Color('#ff3355') : rv ? valColor(rv) : new THREE.Color('#ffffff'));
   ghostBody.material.emissive.copy(!pv.ok ? new THREE.Color('#ff0033') : pv.burst ? new THREE.Color('#ffb020') : rv ? valColor(rv) : new THREE.Color(EMPS.wild.color));
   ghostLabel.material.map = labelTex(pv.result, !pv.ok);
-  if (tgt.kind === 'drop' && pv.ok) {
+  if (tgt.kind === 'drop' && pv.ok && !S.nograv) {
     colStrip.visible = true; const top = S.h + 0.2;
     colStrip.position.set(tgt.x - (S.w - 1) / 2, (tgt.y + top) / 2, -0.44); colStrip.scale.set(0.92, top - tgt.y, 1);
   } else colStrip.visible = false;
@@ -3541,7 +4787,7 @@ function showPreview(ti, tgt) {
   if (pv.ok && pv.ids && pv.ids.length) sfx.tick(pv.ids.length);
 }
 function clearPreviewGlow() {
-  for (const v of views.values()) { if (v.glow) { v.glow = 0; if (v.k === 'n') { v.body.material.emissive.set(v.blaze ? '#ff6a00' : '#000000'); v.body.material.emissiveIntensity = v.blaze ? 0.45 : 1; } } }
+  for (const v of views.values()) { if (v.glow) { v.glow = 0; if (v.k === 'n') { v.body.material.emissive.set(v.blaze ? '#ff6a00' : '#000000'); v.body.material.emissiveIntensity = v.blaze ? 0.45 : 1; updatePrime(v); } } }
 }
 function hidePreview() { clearPreviewGlow(); preview = null; ghost.visible = false; ghost2.visible = false; colStrip.visible = false; }
 
@@ -3645,6 +4891,8 @@ function goalIcon(g) {
     case 'score': return `<div class="gicon" style="background:#ffd23f">★</div>`;
     case 'anchor': return `<div class="gicon" style="background:#56627a"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="#ffe9a8" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="5" r="2"/><path d="M12 7v13M8 10h8M5 14a7 7 0 0 0 14 0"/></svg></div>`;
     case 'spawner': return `<div class="gicon" style="background:#d9a441"><svg viewBox="0 0 24 24" width="22" height="22"><circle cx="12" cy="12" r="6" fill="none" stroke="#fff" stroke-width="2.5" stroke-dasharray="3 2"/><circle cx="12" cy="12" r="2" fill="#fff"/></svg></div>`;
+    case 'parity': return `<div class="gicon" style="background:linear-gradient(90deg,#2f8cff 50%,#ff8a2a 50%);font-size:12px">E/O</div>`;
+    case 'prime': return `<div class="gicon" style="background:#c9961a"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M8 11V8a4 4 0 0 1 8 0" fill="none" stroke="#fff" stroke-width="2.4"/><rect x="6" y="11" width="12" height="9" rx="2" fill="#fff"/></svg></div>`;
     case 'crystal': return `<div class="gicon" style="background:linear-gradient(135deg,#7b5cff,#c58bff)"><svg viewBox="0 0 24 24" width="20" height="20"><path d="M12 2l6 8-6 12-6-12z" fill="#fff" opacity=".9"/></svg></div>`;
     case 'tile': return `<div class="gicon" style="background:#2e2457;color:#ffd23f;box-shadow:inset 0 0 0 2px #ffd23f">×2</div>`;
     case 'combo': return `<div class="gicon" style="background:linear-gradient(135deg,#ff6bd6,#ffd166)">×</div>`;
@@ -3664,6 +4912,8 @@ function goalText(g, long = false) {
     case 'score': return long ? `Score ${g.n}` : '';
     case 'anchor': return long ? `Bring ${g.n > 1 ? 'all ' + g.n + ' anchors' : 'the anchor'} to the bottom` : '';
     case 'spawner': return long ? `Break ${g.n > 1 ? 'all ' + g.n + ' spawners' : 'the spawner'}` : '';
+    case 'parity': return long ? `Break ${g.n} EVEN/ODD block${g.n > 1 ? 's' : ''}` : '';
+    case 'prime': return long ? `Unlock and break ${g.n > 1 ? 'all ' + g.n + ' prime-locked blocks' : 'the prime-locked block'}` : '';
     case 'crystal': return long ? `Free ${g.n > 1 ? 'all ' + g.n + ' crystals' : 'the crystal'}: clear blocks touching them` : '';
     case 'tile': return long ? `Clear ${g.n} blocks on gold ×2 tiles` : '';
     case 'combo': return long ? `Make a ×${g.n} cascade (clears that set off more clears)` : '';
@@ -3675,7 +4925,7 @@ let lastGoalCur = [];
 let shownScore = 0;
 function updateHUD() {
   if (!S) return;
-  $('#lvl-name').innerHTML = `<div><small>Chapter ${level.chapter} · ${esc(level.id)}</small>${esc(level.name)}</div>`;
+  $('#lvl-name').innerHTML = `<div><small>${level.endless ? 'Endless Climb' : 'Chapter ' + level.chapter} · ${esc(level.id)}${S.nograv ? ' · No gravity' : ''}</small>${esc(level.name)}</div>`;
   $('#rolls-pill').innerHTML = `${ICON.dice}${S.rollsLeft}`;
   const gp = L.goalProgress(S);
   $('#goals').innerHTML = gp.map((p, i) => {
@@ -3712,10 +4962,10 @@ function toast(text, ms = 1800) {
 
 // =============== game flow ===============
 function themeForLevel(lv) { return themeOf(lv.chapter); }
-async function startLevel(lv) {
+async function startLevel(lv, opts = {}) {
   closeModal(); closePop();
   level = lv; mode = 'play';
-  const dice = P.loadout.map(id => dieById(id)).filter(Boolean).map(d => ({ id: d.id, type: d.type, emp: d.emp || null, emp2: d.emp2 || null }));
+  const dice = opts.dice ? opts.dice.map(d => ({ ...d })) : P.loadout.map(id => dieById(id)).filter(Boolean).map(d => ({ id: d.id, type: d.type, emp: d.emp || null, emp2: d.emp2 || null }));
   if (!dice.length) dice.push({ id: 0, type: 'd6', emp: null });
   S = L.createGame(lv, dice);
   snapshot = null; busy = true; shownScore = 0; lastGoalCur = [];
@@ -3740,7 +4990,8 @@ async function startLevel(lv) {
     });
   }));
   busy = false; updateHUD();
-  if (lv.tip && !lv.teach) toast(lv.tip, 3800);
+  if (lv.gravity === false && lv.teach !== 'nograv') toast('No gravity here: blocks stay exactly where you put them.', 3200);
+  else if (lv.tip && !lv.teach) toast(lv.tip, 3800);
   hint(P.seen.rolled ? '' : 'Tap ROLL to throw your dice!');
 }
 function playBombTicks() {
@@ -3872,7 +5123,9 @@ async function playPlace(st, ti) {
       setVal(v, Math.round(st.from + (steps * i) / nTicks)); sfx.tick(i);
       await wait(32);
     }
+    const wasLocked = v.primeParts && !L.isPrime(st.from);
     setVal(v, st.v);
+    if (wasLocked && L.isPrime(st.v)) { sfx.shine(); spawnSparks(target, '#ffd23f', 18, 2.5, 0.4, 0.6, 0, starTex); floatText('UNLOCKED!', target.clone().add(new THREE.Vector3(0, 0.5, 0.6)), { color: '#ffe066', size: 20 }); }
     if (st.vanish) {
       sfx.fizz(); spawnSparks(target, EMPS.hex.color, 22, 2.8, 0.45, 0.7); spawnShards(target, EMPS.hex.color, 8, 2.5);
       floatText('POOF', target.clone().add(new THREE.Vector3(0, 0.3, 0.6)), { color: '#c9d0ff', size: 20 });
@@ -4002,6 +5255,7 @@ async function playResolve(st) {
 
 // win / lose
 async function winSequence() {
+  if (level.endless) return endlessWin();
   busy = true; hint(''); updateHUD();
   sfx.win(); banner('GOAL!', 'big'); vibrate([40, 30, 60]);
   spawnConfetti(new THREE.Vector3(0, S.h * 0.6, 1), 90, 7);
@@ -4050,6 +5304,10 @@ function grantReward(r) {
     if (!P.unlockedEmps.includes(r.emp)) P.unlockedEmps.push(r.emp);
     return `<div class="reward">${empIcon(r.emp)}<div><b>Empowerment: ${EMPS[r.emp].name}!</b><br>${EMPS[r.emp].desc} Attach it in Dice.</div></div>`;
   }
+  if (r.endless) {
+    P.endless = true;
+    return `<div class="reward"><div class="emp-ico" style="background:linear-gradient(135deg,#ff9f1c,#ff4f8b)">∞</div><div><b>Endless Climb unlocked!</b><br>Endless generated floors. Find it at the bottom of the map.</div></div>`;
+  }
   if (r.slot2) {
     P.emp2 = true;
     return `<div class="reward"><div class="emp-ico" style="background:var(--violet)">2</div><div><b>Second power slot!</b><br>Every die can now hold two empowerments. Set them up in Dice.</div></div>`;
@@ -4062,6 +5320,7 @@ function grantReward(r) {
   return '';
 }
 async function loseSequence(reason) {
+  if (level && level.endless) return endlessOver(reason);
   busy = true; hint(''); sfx.lose(); vibrate(60);
   const vs = [...views.values()];
   await tween(700, e => vs.forEach(v => { if (v.k === 'n') v.body.material.color.lerp(new THREE.Color('#8a8499'), e * 0.15); v.g.rotation.z = Math.sin(v.id) * 0.12 * e; v.g.scale.y = 1 - 0.12 * e; }));
@@ -4209,7 +5468,10 @@ function onAct(act, ds) {
     case 'undo': closeModal(); undo(); break;
     case 'giveup': closeModal(); loseSequence('Stuck!'); break;
     case 'map': closeModal(); showMap(); break;
-    case 'retry': closeModal(); startLevel(level); break;
+    case 'retry': closeModal(); if (level && level.endless) startEndless(); else startLevel(level); break;
+    case 'endless': closeModal(); startEndless(); break;
+    case 'boost': { const b = BOOSTS.find(x => x.id === ds.id); if (b && run) { b.apply(run); save(); toast(b.name + '!', 1400); } closeModal(); nextFloor(); break; }
+    case 'continue': closeModal(); if (run && (run.floor - 1) % 5 === 0) showBoosts(); else nextFloor(); break;
     case 'next': { const n = LEVELS[levelIndex(level.key) + 1]; closeModal(); if (n) showIntro(n); break; }
     case 'play': startLevel(LEVELS[+ds.i]); break;
     case 'collection': showCollection(ds.back ? +ds.back : null); break;
@@ -4279,6 +5541,16 @@ const TEACH = {
   bomb: { title: 'Bombs', note: 'Each roll ticks a bomb timer down by 1. Clear the bomb in a match before it reaches 0 and it blasts everything in the 3×3 around it. At 0 it fizzles into stone.', panels: [
     { rows: ['. . . .', '2 9 . .', 'b4 4 . 1'], die: { v: 4, col: 2, row: 2 }, cap: 'Match the bomb' },
     { rows: ['. . . .', 'x x . .', 'x x x 1'], boom: [2, 0], cap: 'BOOM! 3×3 blast' }] },
+  parity: { title: 'Even and odd blocks', note: 'A blue EVEN block only takes even dice, an orange ODD block only odd dice. Dropping beside them works with any die, and they match like normal blocks.', panels: [
+    { rows: ['. .', 'e4 .'], die: { v: 2, col: 0, row: 1, onto: true }, cap: 'EVEN takes a 2' },
+    { rows: ['. .', 'e6 .'], cap: '4 + 2 = 6' },
+    { rows: ['. .', 'o5 .'], die: { v: 3, col: 0, row: 1, onto: true }, cap: 'ODD takes a 3' }] },
+  prime: { title: 'Prime locks', note: 'A padlocked block cannot match until its number is prime: 2, 3, 5, 7, 11, 13, 17 or 19. Stack dice onto it to change the number and unlock it.', panels: [
+    { rows: ['. . .', 'p8 . .'], die: { v: 3, col: 0, row: 1, onto: true }, cap: 'Locked at 8' },
+    { rows: ['. . .', '*11 . .'], cap: '8 + 3 = 11: unlocked!' }] },
+  nograv: { title: 'No gravity', note: 'On these boards nothing falls. A die goes into exactly the empty cell you choose, even in mid-air, and clears leave gaps behind. Plan every spot!', panels: [
+    { rows: ['. . .', '. . .', '2 . .'], die: { v: 5, col: 1, row: 0 }, cap: 'Place it anywhere' },
+    { rows: ['. 5 .', '. . .', '2 . .'], cap: 'It floats in place' }] },
   crystal: { title: 'Crystals', note: 'Crystals never match and you cannot stack on them. Any clear right next to one (a match, a burst, a blast or a line bonus) breaks it free.', panels: [
     { rows: ['. . . .', 'C . . .', '4 4 . 1'], die: { v: 4, col: 2, row: 2 }, cap: 'Match next to a crystal' },
     { rows: ['. . . .', 'x . . .', 'x x x 1'], cap: 'It breaks free!' }] },
@@ -4321,11 +5593,15 @@ function teachPanel(p) {
     if (t === 'A') { s += `<rect x="${x}" y="${y}" width="${w}" height="${w}" rx="5" fill="#56627a"/><text x="${x + w / 2}" y="${y + w / 2 + 5}" text-anchor="middle" font-size="14" fill="#ffe9a8">⚓</text>`; return; }
     if (t === '★') { s += `<text x="${x + w / 2}" y="${y + w / 2 + 6}" text-anchor="middle" font-size="18" fill="#ffd23f">★</text>`; return; }
     if (t === 'S') { s += `<path d="M${x + 3} ${y + w - 3}l3-${w - 10} ${w / 2 - 4}-5 ${w / 2 - 2} 6-1 ${w - 10}z" fill="#9a93ad" stroke="#6f6886"/>`; return; }
-    let v = t, ice = false, hi = false, bomb = false, gear = false;
+    let v = t, ice = false, hi = false, bomb = false, gear = false, par = null, lock = false;
     if (v[0] === 'g') { gear = true; v = v.slice(1); }
+    if (v[0] === 'e' || v[0] === 'o') { par = v[0]; v = v.slice(1); }
+    if (v[0] === 'p') { lock = true; v = v.slice(1); }
     if (v[0] === 'i') { ice = true; v = v.slice(1); } if (v[0] === '*') { hi = true; v = v.slice(1); } if (v[0] === 'b') { bomb = true; v = v.slice(1); }
     s += `<rect x="${x}" y="${y}" width="${w}" height="${w}" rx="5" fill="${cssVal(+v)}" ${hi ? 'stroke="#ffe066" stroke-width="2.5"' : ''}/>`;
     s += `<text x="${x + w / 2}" y="${y + w / 2 + 5}" text-anchor="middle" font-family="Fredoka,system-ui" font-weight="700" font-size="${v.length > 1 ? 12 : 14}" fill="#fff">${v}</text>`;
+    if (par) s += `<rect x="${x + 3}" y="${y + w - 8}" width="${w - 6}" height="7" rx="3" fill="${par === 'e' ? '#2f8cff' : '#ff8a2a'}"/><text x="${x + w / 2}" y="${y + w - 2.5}" text-anchor="middle" font-family="Fredoka,system-ui" font-weight="700" font-size="6" fill="#fff">${par === 'e' ? 'EVEN' : 'ODD'}</text>`;
+    if (lock) s += `<circle cx="${x + w - 4}" cy="${y + 4}" r="5.5" fill="#2b2235"/><rect x="${x + w - 7}" y="${y + 3}" width="6" height="4" fill="#ffd23f"/>`;
     if (gear) s += `<circle cx="${x + w / 2}" cy="${y + w / 2}" r="${w / 2 - 1}" fill="none" stroke="#d9a441" stroke-width="2.5" stroke-dasharray="3 2"/>`;
     if (bomb) s += `<circle cx="${x + w - 4}" cy="${y + 4}" r="5" fill="#2b2235"/><path d="M${x + w - 1} ${y + 1}l3 -4" stroke="#ff9a3c" stroke-width="2"/>`;
     if (ice) s += `<rect x="${x - 1}" y="${y - 1}" width="${w + 2}" height="${w + 2}" rx="6" fill="#cdefff" fill-opacity=".45" stroke="#fff" stroke-width="1.5"/>`;
@@ -4369,14 +5645,121 @@ function updateBands(announce = true) {
   }
 }
 
+// =============== Endless Climb ===============
+let run = null;
+const EBASE = { w: [5, 6], h: [6, 7], fill: [0.25, 0.4], values: [1, 12], timer: [3, 5] };
+const ENDLESS_POOL = [
+  { specials: { bomb: [1, 2] }, goals: [{ t: 'bomb' }, { t: 'any', n: [10, 14] }], goalCount: [2, 2] },
+  { specials: { ice: [2, 3] }, goals: [{ t: 'ice' }, { t: 'lines', n: [1, 2] }], goalCount: [2, 2] },
+  { specials: { crystal: [2, 3] }, goals: [{ t: 'crystal' }, { t: 'any', n: [8, 12] }], goalCount: [1, 2] },
+  { specials: { anchor: [1, 2] }, goals: [{ t: 'anchor' }, { t: 'any', n: [8, 12] }], goalCount: [1, 2] },
+  { specials: { spawner: [1, 2] }, goals: [{ t: 'spawner' }, { t: 'break', n: [3, 4] }], goalCount: [2, 2] },
+  { tiles: [3, 4], goals: [{ t: 'tile', n: [3, 5] }] },
+  { specials: { parity: [2, 3] }, goals: [{ t: 'parity' }, { t: 'any', n: [8, 12] }], goalCount: [1, 2] },
+  { specials: { prime: [1, 2] }, goals: [{ t: 'prime' }, { t: 'any', n: [8, 12] }], goalCount: [2, 2] },
+  { nograv: true, specials: { crystal: [1, 2] }, goals: [{ t: 'crystal' }, { t: 'any', n: [8, 12] }], goalCount: [2, 2] },
+  { high: { count: [2, 3], range: [14, 18] }, specials: { stone: [1, 2] }, goals: [{ t: 'burst', n: [1, 2] }, { t: 'stone' }], goalCount: [1, 2] },
+  { holes: ['hourglass', 'pillars', 'funnel', 'notch'], specials: { bomb: [1, 1], ice: [1, 2] }, goals: [{ t: 'bomb' }, { t: 'ice' }], goalCount: [2, 2] },
+  { specials: { crystal: [2, 3], bomb: [1, 2] }, goals: [{ t: 'crystal' }, { t: 'bomb' }], goalCount: [2, 2] },
+];
+const BOOSTS = [
+  { id: 'rolls', name: '+2 rolls', desc: 'Two extra rolls on the next floor.', apply: r => { r.carry += 2; } },
+  { id: 'die', name: 'Extra D8', desc: 'Add a D8 to your dice for the rest of the climb.', apply: r => { if (r.dice.length < 8) r.dice.push({ id: 900 + r.floor, type: 'd8', emp: null, emp2: null }); } },
+  { id: 'wild', name: 'Wild touch', desc: 'Your first plain power slot gains Wild for this climb.', apply: r => { const d = r.dice.find(d => !d.emp && !L.has(d, 'split')) || r.dice.find(d => !d.emp2 && !L.has(d, 'split')); if (d) { if (!d.emp) d.emp = 'wild'; else d.emp2 = 'wild'; } } },
+  { id: 'loaded', name: 'Loaded dice', desc: 'Every die with a free slot gains Loaded (never rolls a 1).', apply: r => r.dice.forEach(d => { if (!d.emp) d.emp = 'loaded'; else if (!d.emp2 && d.emp !== 'loaded') d.emp2 = 'loaded'; }) },
+  { id: 'gems', name: '+15 gems', desc: 'Spend them in the shop later.', apply: () => { P.gems += 15; } },
+];
+const yieldUI = () => new Promise(r => setTimeout(r, 16));
+function buildingOverlay(text) {
+  let el = document.getElementById('building');
+  if (!text) { if (el) el.remove(); return; }
+  if (!el) { el = document.createElement('div'); el.id = 'building'; el.innerHTML = '<div><div class="spin"></div><span></span></div>'; document.body.appendChild(el); }
+  el.querySelector('span').textContent = text;
+}
+async function makeFloor(floor) {
+  const ch = CHAPTERS[Math.floor((floor - 1) / 5) % CHAPTERS.length];
+  const center = Math.max(0.35, 0.9 - 0.025 * (floor - 1)), lo = center - 0.15, hi = center + 0.15;
+  const dice = run.dice.map(d => d.type + (d.emp || d.emp2 ? ':' + [d.emp, d.emp2].filter(Boolean).join('+') : ''));
+  let best = null;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const seed = (run.seed + floor * 7919 + attempt * 104729) | 0, rr = GEN.rng(seed);
+    const tpl = ENDLESS_POOL[Math.floor(rr() * ENDLESS_POOL.length)];
+    const recipe = { ...EBASE, ...tpl };
+    const board = GEN.generateBoard(recipe, seed);
+    const lv = { key: 'endless', name: '', rolls: 5, star3: 1e9, ...board };
+    if (GEN.checkLevel(lv)) continue;
+    let res = null;
+    for (let k = 0; k < 5; k++) {
+      await yieldUI();
+      res = BOT.simulate(lv, dice, 20, 1, seed + k);
+      if (res.win > hi && lv.rolls > 3) lv.rolls--;
+      else if (res.win < lo && lv.rolls < 10) lv.rolls++;
+      else break;
+    }
+    best = lv;
+    if (res && res.win > 0) break;
+  }
+  if (!best) best = { key: 'endless', rolls: 6, star3: 1e9, goals: [{ t: 'any', n: 8 }], rows: ['. . . . .', '. . . . .', '. . . . .', '. . . . .', '2 . 4 . 6', '5 3 . 1 2'] };
+  const names = new Set();
+  return { ...best, key: 'endless', endless: true, chapter: ch.n, id: `F${floor}`, name: GEN.levelName(ch.names || ch.env, GEN.rng(run.seed + floor), names) };
+}
+function startEndless() {
+  const dice = P.loadout.map(id => dieById(id)).filter(Boolean).map(d => ({ id: d.id, type: d.type, emp: d.emp || null, emp2: d.emp2 || null }));
+  run = { floor: 1, carry: 0, score: 0, dice: dice.length ? dice : [{ id: 0, type: 'd6', emp: null, emp2: null }], seed: (Math.random() * 1e9) | 0 };
+  nextFloor();
+}
+async function nextFloor() {
+  closeModal(); buildingOverlay(`Building floor ${run.floor}…`);
+  await yieldUI();
+  const lv = await makeFloor(run.floor);
+  lv.rolls += run.carry; run.carry = 0;
+  buildingOverlay(null);
+  await startLevel(lv, { dice: run.dice });
+  toast(`Floor ${run.floor}${lv.gravity === false ? ' · No gravity!' : ''}`, 1600);
+}
+async function endlessWin() {
+  busy = true; hint(''); updateHUD();
+  sfx.win(); banner('FLOOR CLEARED!', 'big'); vibrate([40, 30, 60]);
+  spawnConfetti(new THREE.Vector3(0, S.h * 0.6, 1), 70, 7);
+  const carry = Math.min(3, S.rollsLeft);
+  run.score += S.score; run.carry = carry; P.gems += 2;
+  const cleared = run.floor; run.floor++;
+  const eb = P.endlessBest || { floor: 0, score: 0 };
+  if (cleared > eb.floor || (cleared === eb.floor && run.score > eb.score)) P.endlessBest = { floor: cleared, score: run.score };
+  save();
+  await wait(1200);
+  openModal(`<h1>Floor ${cleared} cleared!</h1><div class="sub">${esc(level.name)}</div>
+    <div class="score-big">${run.score}</div><div class="sub">climb total · +2 gems</div>
+    ${carry ? `<div class="tip">🎲 ${carry} leftover roll${carry > 1 ? 's' : ''} carried to the next floor.</div>` : ''}
+    ${cleared % 5 === 0 ? '<div class="tip">⭐ Boost time! Pick one before the next floor.</div>' : ''}
+    <div class="actions"><button class="btn ghost" data-act="map">Stop here</button><button class="btn" data-act="continue">Floor ${run.floor} ▶</button></div>`, { center: true, dismiss: false });
+  busy = false;
+}
+function showBoosts() {
+  const pick = BOOSTS.slice().sort(() => Math.random() - 0.5).slice(0, 3);
+  openModal(`<h1>Pick a boost</h1><div class="sub">It lasts for the rest of this climb.</div>
+    ${pick.map(b => `<button class="choice" data-act="boost" data-id="${b.id}"><div class="emp-ico" style="background:linear-gradient(135deg,#ff9f1c,#ff4f8b)">★</div><div style="flex:1"><b>${esc(b.name)}</b><div style="font-size:12px;color:var(--ink2);font-weight:500">${esc(b.desc)}</div></div></button>`).join('')}`, { center: true, dismiss: false });
+}
+async function endlessOver(reason) {
+  busy = true; hint(''); sfx.lose(); vibrate(60);
+  const vs = [...views.values()];
+  await tween(700, e => vs.forEach(v => { if (v.k === 'n') v.body.material.color.lerp(new THREE.Color('#8a8499'), e * 0.15); v.g.scale.y = 1 - 0.12 * e; }));
+  const cleared = run.floor - 1, eb = P.endlessBest || { floor: 0, score: 0 };
+  const record = cleared > 0 && cleared >= eb.floor && run.score >= eb.score;
+  openModal(`<h1>Climb over</h1><div class="sub">${esc(reason)} on floor ${run.floor}</div>
+    <div class="score-big">${cleared} floor${cleared === 1 ? '' : 's'}</div><div class="sub">${run.score} points${record ? ' · new best!' : ` · best: floor ${eb.floor}`}</div>
+    <div class="actions"><button class="btn ghost" data-act="map">Map</button><button class="btn pink" data-act="endless">New climb</button></div>`, { center: true, dismiss: false });
+  busy = false;
+}
+
 // =============== screens ===============
 function showIntro(lv) {
   const i = levelIndex(lv.key);
   const lo = P.loadout.map(dieById).filter(Boolean);
   openModal(`<div class="row center"><span class="tag" style="background:${themeForLevel(lv).tag};padding:3px 10px;border-radius:999px;color:#fff;font-weight:700;font-size:12px;letter-spacing:.08em">CHAPTER ${lv.chapter} · ${esc(lv.id)}${lv.boss ? ' · BOSS' : ''}</span></div>
     <h1>${esc(lv.name)}</h1>
-    <div class="sub">${lv.rolls} rolls · ${lv.rows[0].trim().split(/\s+/).length}×${lv.rows.length} board</div>
-    <div class="goal-list">${lv.goals.map(g => { const gg = { ...g }; if (['ice', 'stone', 'bomb', 'anchor', 'spawner', 'crystal'].includes(g.t) && !g.n) gg.n = L.createGame(lv, []).goals.find(x => x.t === g.t).n; return `<div class="goal-big">${goalIcon(gg)}<span>${goalText(gg, true)}</span></div>`; }).join('')}</div>
+    <div class="sub">${lv.rolls} rolls · ${lv.rows[0].trim().split(/\s+/).length}×${lv.rows.length} board${lv.gravity === false ? ' · No gravity' : ''}</div>
+    <div class="goal-list">${lv.goals.map(g => { const gg = { ...g }; if (['ice', 'stone', 'bomb', 'anchor', 'spawner', 'crystal', 'parity', 'prime'].includes(g.t) && !g.n) gg.n = L.createGame(lv, []).goals.find(x => x.t === g.t).n; return `<div class="goal-big">${goalIcon(gg)}<span>${goalText(gg, true)}</span></div>`; }).join('')}</div>
     ${lv.teach ? teachCard(lv.teach) : lv.tip ? `<div class="tip">💡 ${esc(lv.tip)}</div>` : ''}
     <h3>Your dice (${lo.length}/${P.slots})</h3>
     <div class="dice-row">${lo.map(d => `<div class="die-card">${dieSvg(d.type)}${empsOf(d).length ? empChips(d) : '<span class="emp" style="color:#b3a6cc">plain</span>'}</div>`).join('')}</div>
@@ -4467,6 +5850,10 @@ function showMap() {
     });
     html.push(`</div></div>`);
   }
+  const eb = P.endlessBest || { floor: 0, score: 0 };
+  html.push(P.endless
+    ? `<div class="world" style="text-align:center;background:linear-gradient(160deg,#fff3c4,#ffe0f0)"><span class="tag" style="background:linear-gradient(90deg,#ff9f1c,#ff4f8b)">Endless</span><h2>Endless Climb</h2><p>Generated floors that get harder as you climb. Leftover rolls carry over, and every 5 floors you pick a boost.</p><p><b>Best: floor ${eb.floor}</b>${eb.score ? ` · ${eb.score} points` : ''}</p><div class="actions"><button class="btn pink" data-act="endless">Start climb ▶</button></div></div>`
+    : `<div class="world" style="text-align:center;opacity:.85"><span class="tag" style="background:#9a93ad">Endless</span><h2>Endless Climb</h2><p>🔒 Beat chapter 11 to unlock endless generated floors.</p></div>`);
   html.push(`<div class="world" style="text-align:center"><h2>More chapters coming</h2><p>Volcano, Clockwork, Crystal Caves, Reef, Desert and the Void, with D10, D12 and D20.</p></div></div>`);
   const sc = $('#screen-map'); sc.innerHTML = html.join(''); sc.classList.remove('hidden');
   if (!sc._wired) {
@@ -4493,6 +5880,7 @@ function frame(now) {
     else if (p.kind === 'bob') p.o.position.y = p.y + Math.sin(T * 0.7 + p.ph) * 0.25;
     else if (p.kind === 'spin') p.o.rotation.y += dt * 0.8;
     else if (p.kind === 'steam') { if (Math.random() < dt * 1.2) spawnSparks(p.o.getWorldPosition(new THREE.Vector3()).add(new THREE.Vector3(0, 0.45, 0)), '#ffffff', 1, 0.3, 0.6, 1.4, -0.5); }
+    else if (p.kind === 'fish') { p.o.position.x += p.sp * dt; p.o.position.y = p.y + Math.sin(T * 1.5 + p.ph) * 0.3; if (p.o.position.x > 13) p.o.position.x = -13; if (p.o.position.x < -13) p.o.position.x = 13; }
     else if (p.kind === 'glow') p.o.material.emissiveIntensity = 0.7 + 0.35 * Math.sin(T * 1.8 + p.ph);
     else if (p.kind === 'tile') p.o.material.opacity = 0.7 + 0.3 * Math.sin(T * 3 + p.ph);
     else if (p.kind === 'gear') p.o.rotation.z += dt * p.sp;
@@ -4563,7 +5951,7 @@ function frame(now) {
 }
 
 // =============== boot ===============
-window.__dd = { get S() { return S; }, startLevel, doRoll, commit, undo, showMap, LEVELS, L, get busy() { return busy; }, P: () => P };
+window.__dd = { get S() { return S; }, startLevel, doRoll, commit, undo, showMap, LEVELS, L, get busy() { return busy; }, P: () => P, startEndless, get run() { return run; }, get level() { return level; } };
 applyQuality();
 showMap();
 requestAnimationFrame(frame);
